@@ -69,6 +69,27 @@ def _anomaly_check_status(session: Session, factory: db.Factory) -> str:
     return "not_available"
 
 
+# Keyword heuristic, not a measured exposure reading — no VOC/solvent
+# instrumentation exists in this system. Flags process labels that
+# plausibly involve solvent/VOC handling (dyeing, glazing, distillation,
+# reactor chemistry) per the source research doc's Part B.2 (worker health
+# is a real, documented occupational-exposure risk for these process types,
+# separate from and additional to their emissions/cost impact).
+_VOC_RISK_KEYWORDS = ("dye", "glaz", "distill", "reactor", "solvent", "paint", "degreas", "print")
+
+
+def _worker_exposure_flags(factory: db.Factory) -> list[str]:
+    flags = []
+    for e in factory.equipment:
+        label_lower = e.label.lower()
+        if any(kw in label_lower for kw in _VOC_RISK_KEYWORDS):
+            flags.append(
+                f"{e.label}: plausible solvent/VOC exposure risk (keyword heuristic on process label, "
+                f"not a measured reading — see occupational studies cited in the leak-point research doc)."
+            )
+    return flags
+
+
 def _to_full_out(session: Session, factory: db.Factory) -> schemas.FactoryFullOut:
     total = sum(e.co2e_tpy or 0.0 for e in factory.equipment)
     equipment = [
@@ -123,6 +144,7 @@ def _to_full_out(session: Session, factory: db.Factory) -> schemas.FactoryFullOu
         avoidable_co2e_tpy=round(avoidable_co2e, 1), carbon_credit_value_inr_per_year=credit_value,
         carbon_credit_is_placeholder=True, carbon_credit_note=carbon_credit.SOURCE_NOTE,
         equipment=equipment, anomaly_check_status=_anomaly_check_status(session, factory),
+        worker_exposure_flags=_worker_exposure_flags(factory),
     )
 
 

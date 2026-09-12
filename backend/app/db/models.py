@@ -332,6 +332,29 @@ class EmissionFactor(Base):
     confidence: Mapped[str] = mapped_column(String, nullable=False)
 
 
+class LeakAssessment(Base):
+    """A computed, invoice/nameplate-based leak estimate — compressed air or
+    refrigerant — per app/intelligence/leak_estimators.py. Deliberately kept
+    separate from the equipment/EmissionRecord engine: these are additional,
+    off-engine diagnostics computed from data a plant already has on hand
+    (compressor control-panel timing, refrigerant purchase invoices), not a
+    re-measurement of an existing equipment row, so they are never double
+    counted into total_co2e_tpy — surfaced as their own avoidable_co2e_tpy /
+    avoidable_cost_inr on top of the normal per-process diagnosis."""
+    __tablename__ = "leak_assessments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    factory_id: Mapped[str] = mapped_column(ForeignKey("factories.id"), nullable=False)
+    kind: Mapped[str] = mapped_column(String, nullable=False)  # compressed_air | refrigerant
+    method: Mapped[str] = mapped_column(String, nullable=False)
+    inputs: Mapped[dict] = mapped_column(JSON, nullable=False)
+    leak_rate_pct: Mapped[float] = mapped_column(Float, nullable=False)
+    co2e_tpy: Mapped[float] = mapped_column(Float, nullable=False)
+    cost_inr_per_year: Mapped[float] = mapped_column(Float, nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class Explanation(Base):
     """Reserved for Phase 3 (Ollama LLM + deterministic-fallback explainer).
     Schema exists now so Phase 3 only needs to add write logic, not a migration.

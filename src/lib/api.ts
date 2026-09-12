@@ -109,6 +109,36 @@ export interface ApiEquipment {
   recommendations: ApiRecommendation[];
 }
 
+export interface ApiLeakAssessment {
+  id: number;
+  factory_id: string;
+  kind: "compressed_air" | "refrigerant";
+  method: string;
+  inputs: Record<string, unknown>;
+  leak_rate_pct: number;
+  co2e_tpy: number;
+  cost_inr_per_year: number;
+  note: string;
+  created_at: string;
+}
+
+export interface ApiWaterBenchmark {
+  factory_id: string;
+  available: boolean;
+  litres_per_kg_submitted: number | null;
+  benchmark_low_litres_per_kg: number | null;
+  benchmark_high_litres_per_kg: number | null;
+  deviation_note: string | null;
+  source: string;
+}
+
+export interface ApiCrossProcessInsight {
+  finding: string;
+  equipment_a: string;
+  equipment_b: string;
+  note: string;
+}
+
 export interface ApiFactory {
   id: string;
   name: string;
@@ -129,6 +159,8 @@ export interface ApiFactory {
   carbon_credit_is_placeholder: boolean;
   carbon_credit_note: string;
   equipment: ApiEquipment[];
+  anomaly_check_status?: string;
+  worker_exposure_flags?: string[];
 }
 
 export interface ApiAnomaly {
@@ -301,4 +333,20 @@ export const api = {
 
   // Public API tier
   createApiKey: (orgId: string, label = "") => postJson<ApiKeyResult>(`/api/organizations/${orgId}/api-keys`, { label }),
+
+  // Leak diagnostics (compressed air / refrigerant / water / cross-process)
+  leakAssessments: (factoryId: string) => getJson<ApiLeakAssessment[]>(`/api/factories/${factoryId}/leak-assessments`),
+  compressedAirLoadUnloadTest: (factoryId: string, body: {
+    rated_capacity_cfm: number; load_time_min: number; unload_time_min: number;
+    operating_hours_per_year: number; electricity_rate_inr_per_kwh: number; specific_power_kw_per_100cfm?: number;
+  }) => postJson<ApiLeakAssessment>(`/api/factories/${factoryId}/leak-assessments/compressed-air/load-unload-test`, body),
+  compressedAirUnauditedEstimate: (factoryId: string, body: {
+    rated_capacity_cfm: number; operating_hours_per_year: number; electricity_rate_inr_per_kwh: number; specific_power_kw_per_100cfm?: number;
+  }) => postJson<ApiLeakAssessment>(`/api/factories/${factoryId}/leak-assessments/compressed-air/unaudited-estimate`, body),
+  refrigerantLeak: (factoryId: string, body: {
+    refrigerant_key: string; nameplate_charge_kg: number; annual_topup_kg: number; refrigerant_cost_inr_per_kg: number;
+  }) => postJson<ApiLeakAssessment>(`/api/factories/${factoryId}/leak-assessments/refrigerant`, body),
+  waterBenchmark: (factoryId: string, litresPerKg?: number) =>
+    getJson<ApiWaterBenchmark>(`/api/factories/${factoryId}/water-benchmark${litresPerKg != null ? `?litres_per_kg=${litresPerKg}` : ""}`),
+  crossProcessInsights: (factoryId: string) => getJson<ApiCrossProcessInsight[]>(`/api/factories/${factoryId}/cross-process-insights`),
 };

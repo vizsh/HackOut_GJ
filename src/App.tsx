@@ -13,6 +13,7 @@ import ReportPage from "./pages/ReportPage";
 import BrsrReportPage from "./pages/BrsrReportPage";
 import ConsentLedgerPage from "./pages/ConsentLedgerPage";
 import DeveloperApiPage from "./pages/DeveloperApiPage";
+import LeakDiagnosticsPage from "./pages/LeakDiagnosticsPage";
 import JarvisAssistant from "./components/assistant/JarvisAssistant";
 import { useFactoryStore } from "./store/useFactoryStore";
 
@@ -66,6 +67,7 @@ function App() {
           <Route path="/report/:factoryId" element={<ReportPage />} />
           <Route path="/report/:factoryId/brsr" element={<BrsrReportPage />} />
           <Route path="/consent" element={<ConsentLedgerPage />} />
+          <Route path="/leak-diagnostics" element={<LeakDiagnosticsPage />} />
           <Route path="/developer" element={<DeveloperApiPage />} />
         </Routes>
         <JarvisAssistant />

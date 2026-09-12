@@ -249,6 +249,49 @@ def stage_smoke_test() -> None:
     print("  SKIPPED  POST /api/ask, /api/ask/stream — need a live Ollama server, "
           "not exercised here to keep this smoke test fast and deterministic")
 
+    # Leak diagnostics (compressed air / refrigerant / water benchmark / cross-process insights)
+    seed_fid = factories[0]["id"]
+    ca = client.post(f"/api/factories/{seed_fid}/leak-assessments/compressed-air/load-unload-test", json={
+        "rated_capacity_cfm": 500, "load_time_min": 3.0, "unload_time_min": 7.0,
+        "operating_hours_per_year": 6000, "electricity_rate_inr_per_kwh": 8.0,
+    })
+    if ca.status_code != 201 or abs(ca.json()["leak_rate_pct"] - 30.0) > 0.1:
+        failures.append(f"leak-assessments compressed-air (load/unload): got {ca.status_code}, "
+                         f"expected 201 with leak_rate_pct=30.0 (3/(3+7)*100)")
+    else:
+        print(f"  OK  POST .../leak-assessments/compressed-air/load-unload-test -> 201, "
+              f"leak_rate_pct={ca.json()['leak_rate_pct']}")
+
+    ref = client.post(f"/api/factories/{seed_fid}/leak-assessments/refrigerant", json={
+        "refrigerant_key": "r404a", "nameplate_charge_kg": 1000, "annual_topup_kg": 142,
+        "refrigerant_cost_inr_per_kg": 1200,
+    })
+    expected_co2e = 142 * 3922 / 1000  # kg topup x GWP100 / 1000 -> tCO2e
+    if ref.status_code != 201 or abs(ref.json()["co2e_tpy"] - expected_co2e) > 0.5:
+        failures.append(f"leak-assessments refrigerant: got {ref.status_code}, expected 201 with "
+                         f"co2e_tpy~={expected_co2e} (GWP formula regressed?)")
+    else:
+        print(f"  OK  POST .../leak-assessments/refrigerant -> 201, co2e_tpy={ref.json()['co2e_tpy']} "
+              f"(matches 142kg x GWP3922/1000)")
+
+    hist = client.get(f"/api/factories/{seed_fid}/leak-assessments")
+    if hist.status_code != 200 or len(hist.json()) < 2:
+        failures.append(f"GET .../leak-assessments: got {hist.status_code}, expected >=2 persisted rows")
+    else:
+        print(f"  OK  GET .../leak-assessments -> 200, {len(hist.json())} persisted rows")
+
+    wb = client.get(f"/api/factories/{seed_fid}/water-benchmark")
+    if wb.status_code != 200:
+        failures.append(f"GET .../water-benchmark: got {wb.status_code}, expected 200")
+    else:
+        print(f"  OK  GET .../water-benchmark -> 200 (available={wb.json()['available']})")
+
+    cpi = client.get(f"/api/factories/{seed_fid}/cross-process-insights")
+    if cpi.status_code != 200:
+        failures.append(f"GET .../cross-process-insights: got {cpi.status_code}, expected 200")
+    else:
+        print(f"  OK  GET .../cross-process-insights -> 200, {len(cpi.json())} insight(s)")
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()

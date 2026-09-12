@@ -79,6 +79,7 @@ class FactoryFullOut(FactorySummaryOut):
     carbon_credit_note: str
     equipment: list[EquipmentFullOut]
     anomaly_check_status: str = "available"  # available | partial | not_available — see routers/factories._anomaly_check_status
+    worker_exposure_flags: list[str] = []  # keyword-heuristic VOC/solvent exposure risk notes, see routers/factories._worker_exposure_flags
 
 
 class FactorySummaryLiteOut(BaseModel):
@@ -359,6 +360,60 @@ class ApiKeyOut(BaseModel):
     label: str
     rate_limit_per_min: int
     created_at: datetime
+
+
+class CompressedAirLoadUnloadIn(BaseModel):
+    rated_capacity_cfm: float
+    load_time_min: float
+    unload_time_min: float
+    operating_hours_per_year: float = 8760.0
+    electricity_rate_inr_per_kwh: float
+    specific_power_kw_per_100cfm: Optional[float] = None
+
+
+class CompressedAirUnauditedIn(BaseModel):
+    rated_capacity_cfm: float
+    operating_hours_per_year: float = 8760.0
+    electricity_rate_inr_per_kwh: float
+    specific_power_kw_per_100cfm: Optional[float] = None
+
+
+class RefrigerantLeakIn(BaseModel):
+    refrigerant_key: str
+    nameplate_charge_kg: float
+    annual_topup_kg: float
+    refrigerant_cost_inr_per_kg: float
+
+
+class LeakAssessmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    factory_id: str
+    kind: str
+    method: str
+    inputs: dict
+    leak_rate_pct: float
+    co2e_tpy: float
+    cost_inr_per_year: float
+    note: str
+    created_at: datetime
+
+
+class WaterBenchmarkOut(BaseModel):
+    factory_id: str
+    available: bool
+    litres_per_kg_submitted: Optional[float] = None
+    benchmark_low_litres_per_kg: Optional[float] = None
+    benchmark_high_litres_per_kg: Optional[float] = None
+    deviation_note: Optional[str] = None
+    source: str
+
+
+class CrossProcessInsightOut(BaseModel):
+    finding: str
+    equipment_a: str
+    equipment_b: str
+    note: str
 
 
 class PublicFactoryOut(BaseModel):

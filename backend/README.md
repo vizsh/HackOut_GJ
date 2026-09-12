@@ -77,6 +77,15 @@ curl http://127.0.0.1:8811/api/factories/morbi-ceramics-01/benchmark
 | `POST /api/factories/{id}/activity` | append another real month of activity for an already-onboarded process (onboarding above is one-shot). Auto-triggers the recompute job below, so `anomaly_check_status` moves from `"not_available"` to `"available"`/`"partial"` on its own once enough real months exist — see `app/routers/onboarding.py`. |
 | `POST /api/factories/{id}/recompute` | the live feature-window job: re-checks every process against `anomaly.py`'s own `len(series) < 4` minimum and activates real anomaly detection (same z-score rule as the 120 seeded factories) for any that now qualify. Idempotent, safe to call repeatedly. |
 | `GET /api/factories/summary` | lightweight id/name/co2e/severity variant of the bulk listing below, no nested equipment/recommendations — for map/portfolio views that don't need per-process detail. |
+| `POST /api/factories/{id}/leak-assessments/compressed-air/load-unload-test` | compressed-air leak % from the real DOE/Compressed Air Challenge load/unload timing test — no ultrasonic survey needed. See `app/intelligence/leak_estimators.py`. |
+| `POST /api/factories/{id}/leak-assessments/compressed-air/unaudited-estimate` | fallback using the literature-cited 20-30% unaudited-system range when no timing test has been run — clearly flagged as a range, not a measurement. |
+| `POST /api/factories/{id}/leak-assessments/refrigerant` | refrigerant leak % + GWP-weighted CO2e from top-up volume vs. nameplate charge — computable straight from purchase invoices, no sensor. |
+| `GET /api/factories/{id}/leak-assessments` | every leak assessment ever run for a factory, persisted (not recomputed on each view). |
+| `GET /api/factories/{id}/water-benchmark` | sourced water-intensity benchmark (TERI Tirupur study), honestly `available: false` outside textile dyeing/finishing — see `app/water_benchmark.py`. |
+| `GET /api/factories/{id}/cross-process-insights` | structural heat-source/heat-sink pairing check across equipment (the root-cause rules in `app/intelligence/rootcause.py` are all per-equipment) — a pattern flag, not a sized recommendation. |
+| `GET /api/factories/{id}` `worker_exposure_flags` field | keyword-heuristic VOC/solvent exposure risk notes on process labels — disclosed as a heuristic, not a measured exposure reading. |
+
+All of the above are motivated directly by a HackOut'26 research doc, "Industrial Emission Leak-Point Detector" — see its Parts A.1/A.2/A.4 and Scenario walkthroughs (F.2/F.3) for the sourced methods each endpoint implements.
 | `GET /api/factories/{id}/symbiosis-matches`, `GET /api/symbiosis/network` | real matches from `ml/symbiosis_model.py` (Phase 3c) |
 | `POST /api/factories/{id}/ask` | tool-calling explainer, factory-scoped — `{"question": "..."}` |
 | `POST /api/ask` | tool-calling explainer, global/cross-factory — `{"question": "...", "factory_id": null}`. Handles "which factory is best/worst", "what's wrong with X", cluster comparisons — powers the chat widget |

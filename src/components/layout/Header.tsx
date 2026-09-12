@@ -13,6 +13,7 @@ const linkConfigs: { to: string; labelKey?: keyof Translations; label?: string; 
   { to: "/portfolio", labelKey: "navPortfolio" },
   { to: "/co2-exchange", labelKey: "navCo2Exchange", pro: true },
   { to: "/intake", labelKey: "navIntake" },
+  { to: "/leak-diagnostics", label: "Leaks" },
   { to: "/consent", label: "Consent" },
   { to: "/developer", label: "API" },
 ];
