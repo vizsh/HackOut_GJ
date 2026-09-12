@@ -3,10 +3,20 @@
 // traces to a real computation (app/engine + app/intelligence over
 // data-pipeline output), not a mock.
 
+import { useAuthStore } from "../store/useAuthStore";
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8811";
 
+// Real session token (backend/app/auth.py), attached automatically to every
+// request when the user is logged in — the protected mutating endpoints
+// (organizations, consent, API keys) 401 without it, see business.py.
+function authHeaders(): Record<string, string> {
+  const token = useAuthStore.getState().token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`);
+  const res = await fetch(`${API_BASE}${path}`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`GET ${path} failed: ${res.status} ${res.statusText}`);
   return res.json() as Promise<T>;
 }
@@ -14,7 +24,7 @@ async function getJson<T>(path: string): Promise<T> {
 async function postJson<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -211,7 +221,7 @@ export interface ApiSymbiosisMatch {
 async function patchJson<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -291,7 +301,16 @@ export interface ApiFactorySummaryLite {
   organization_id: string | null;
 }
 
+export interface ApiLoginResult {
+  token: string;
+  user: { id: string; email: string; role: "sme" | "consultant" | "regulator"; organization_id: string | null };
+}
+
 export const api = {
+  // Real session auth (backend/app/auth.py)
+  login: (email: string, password: string) => postJson<ApiLoginResult>("/api/auth/login", { email, password }),
+  me: () => getJson<ApiLoginResult["user"]>("/api/auth/me"),
+
   clusters: () => getJson<ApiCluster[]>("/api/clusters"),
   factories: () => getJson<ApiFactory[]>("/api/factories"),
   factoriesSummary: () => getJson<ApiFactorySummaryLite[]>("/api/factories/summary"),

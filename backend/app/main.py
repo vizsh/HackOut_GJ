@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .routers import business, catalog, clusters, explainer, factories, leaks, onboarding
+from .routers import auth, business, catalog, clusters, explainer, factories, leaks, onboarding
 
 app = FastAPI(
     title="Induscope API",
@@ -37,6 +37,7 @@ app.include_router(explainer.router)
 app.include_router(explainer.global_router)
 app.include_router(business.router)
 app.include_router(leaks.router)
+app.include_router(auth.router)
 
 
 @app.get("/api/health")

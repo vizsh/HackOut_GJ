@@ -426,3 +426,22 @@ class PublicFactoryOut(BaseModel):
     total_co2e_tpy: float
     worst_severity: str
     data_source: str
+
+
+# --- Real session auth (app/auth.py) ----------------------------------------
+
+class LoginIn(BaseModel):
+    email: str
+    password: str
+
+
+class UserOut(BaseModel):
+    id: str
+    email: str
+    role: str
+    organization_id: Optional[str] = None
+
+
+class LoginOut(BaseModel):
+    token: str
+    user: UserOut

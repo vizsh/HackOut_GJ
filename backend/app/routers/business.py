@@ -1,12 +1,19 @@
 """Business-model layer: organizations/white-labeling, usage metering,
 consent ledger, vendor directory, BRSR export, and a rate-limited public API
-tier. None of this is an auth system — no login, no real payment. It exists
-to make the monetization model something a judge can click through in the
-live demo rather than a slide describing it, per the same "iron clad, no
-gaps" discipline as the rest of the backend: every number here is computed
-from real submitted/seeded data, and every simplification (in-memory rate
-limiter, no real billing) is disclosed in its own docstring rather than
-hidden behind a nicer-looking response.
+tier. Still no real payment processing. It exists to make the monetization
+model something a judge can click through in the live demo rather than a
+slide describing it, per the same "iron clad, no gaps" discipline as the
+rest of the backend: every number here is computed from real submitted/
+seeded data, and every simplification (in-memory rate limiter, no real
+billing) is disclosed in its own docstring rather than hidden behind a
+nicer-looking response.
+
+Real auth now sits in front of the endpoints that actually mutate an
+organization's membership, a factory's consent, or mint a credential —
+see app/auth.py and POST /api/auth/login. The single exception is the
+"Upgrade to Pro" tier toggle, deliberately left open (see its own
+docstring) since it is a harmless, mocked demo mechanic, not a real
+security boundary.
 """
 from __future__ import annotations
 
@@ -20,7 +27,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .. import schemas
+from .. import auth, schemas
 from ..db import models as db
 from ..deps import get_db
 
@@ -47,7 +54,10 @@ def list_organizations(session: Session = Depends(get_db)):
 
 
 @router.post("/organizations", response_model=schemas.OrganizationOut, status_code=201)
-def create_organization(payload: schemas.OrganizationIn, session: Session = Depends(get_db)):
+def create_organization(
+    payload: schemas.OrganizationIn, session: Session = Depends(get_db),
+    current: auth.CurrentUser = Depends(auth.get_current_user),
+):
     org = db.Organization(id=f"org-{uuid.uuid4().hex[:10]}", name=payload.name, brand_color=payload.brand_color, logo_text=payload.logo_text)
     session.add(org)
     session.commit()
@@ -58,7 +68,15 @@ def create_organization(payload: schemas.OrganizationIn, session: Session = Depe
 def set_organization_tier(org_id: str, payload: schemas.OrganizationTierIn, session: Session = Depends(get_db)):
     """Mock upgrade/downgrade — no payment integration. Real enough to prove
     the freemium gate works live: flip this and the usage meter's free_limits
-    and the frontend's Pro-gated features unlock immediately."""
+    and the frontend's Pro-gated features unlock immediately.
+
+    Deliberately left WITHOUT auth, unlike the other mutating endpoints in
+    this router: this is the one-click "Upgrade to Pro" demo mechanic
+    (ProGate.tsx) — mocked, harmless, no real money or sensitive data moves
+    — and gating it behind login would break that click-through demo for no
+    real security benefit. Every endpoint that touches real organization
+    membership, consent, or credentials below this one does require login.
+    """
     if payload.tier not in ("free", "pro"):
         raise HTTPException(422, "tier must be 'free' or 'pro'")
     org = session.get(db.Organization, org_id)
@@ -70,7 +88,10 @@ def set_organization_tier(org_id: str, payload: schemas.OrganizationTierIn, sess
 
 
 @router.patch("/factories/{factory_id}/organization", response_model=schemas.FactorySummaryLiteOut)
-def assign_factory_organization(factory_id: str, payload: schemas.AssignFactoryIn, session: Session = Depends(get_db)):
+def assign_factory_organization(
+    factory_id: str, payload: schemas.AssignFactoryIn, session: Session = Depends(get_db),
+    current: auth.CurrentUser = Depends(auth.get_current_user),
+):
     factory = session.get(db.Factory, factory_id)
     if factory is None:
         raise HTTPException(404, f"factory '{factory_id}' not found")
@@ -148,7 +169,10 @@ def consent_ledger(session: Session = Depends(get_db)):
 
 
 @router.patch("/factories/{factory_id}/consent", response_model=schemas.ConsentLedgerRowOut)
-def set_factory_consent(factory_id: str, payload: schemas.ConsentToggleIn, session: Session = Depends(get_db)):
+def set_factory_consent(
+    factory_id: str, payload: schemas.ConsentToggleIn, session: Session = Depends(get_db),
+    current: auth.CurrentUser = Depends(auth.get_current_user),
+):
     factory = session.get(db.Factory, factory_id)
     if factory is None:
         raise HTTPException(404, f"factory '{factory_id}' not found")
@@ -276,7 +300,10 @@ def require_api_key(x_api_key: str = Header(...), session: Session = Depends(get
 
 
 @router.post("/organizations/{org_id}/api-keys", response_model=schemas.ApiKeyOut, status_code=201)
-def create_api_key(org_id: str, payload: schemas.ApiKeyCreateIn, session: Session = Depends(get_db)):
+def create_api_key(
+    org_id: str, payload: schemas.ApiKeyCreateIn, session: Session = Depends(get_db),
+    current: auth.CurrentUser = Depends(auth.get_current_user),
+):
     if session.get(db.Organization, org_id) is None:
         raise HTTPException(404, f"organization '{org_id}' not found")
     key = db.ApiKey(

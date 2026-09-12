@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type ApiConsentRow } from "../lib/api";
+import { useAuthStore } from "../store/useAuthStore";
+import LoginGate from "../components/business/LoginGate";
 
 // A real "Data sharing & consent" audit page over Factory.consent_to_share —
 // the exact due-diligence artifact a government data-partnership pitch
@@ -13,6 +15,7 @@ export default function ConsentLedgerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const token = useAuthStore((s) => s.token);
 
   const reload = () => {
     setLoading(true);
@@ -52,6 +55,7 @@ export default function ConsentLedgerPage() {
       </div>
 
       {error && <p className="text-[12px] text-[color:var(--color-crit)]">{error}</p>}
+      {!token && <LoginGate feature="grant or revoke a factory's consent" />}
 
       <div className="glass flex-1 overflow-auto rounded-xl">
         <table className="w-full text-[12px]">
@@ -82,7 +86,8 @@ export default function ConsentLedgerPage() {
                 <td className="px-3 py-2.5 text-right">
                   <button
                     onClick={() => toggle(r)}
-                    disabled={busyId === r.factory_id}
+                    disabled={busyId === r.factory_id || !token}
+                    title={!token ? "Sign in above to change consent" : undefined}
                     className="rounded-md border border-[color:var(--color-border)] px-2.5 py-1 text-[11px] hover:bg-[color:var(--color-panel-2)] disabled:opacity-50"
                   >
                     {busyId === r.factory_id ? "Updating…" : r.consent_to_share ? "Revoke consent" : "Grant consent"}

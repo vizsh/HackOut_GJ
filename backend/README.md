@@ -58,6 +58,26 @@ curl http://127.0.0.1:8811/api/factories/morbi-ceramics-01
 curl http://127.0.0.1:8811/api/factories/morbi-ceramics-01/benchmark
 ```
 
+## Real session auth
+
+`POST /api/auth/login` (email, password) returns a signed, expiring session
+token (see `app/auth.py` — PBKDF2-HMAC-SHA256 password hashing, HMAC-SHA256
+signed tokens, stdlib only, no third-party auth library). Attach it as
+`Authorization: Bearer <token>` — required on the business-layer endpoints
+that mutate organization membership, factory consent, or mint an API key
+(`POST /api/organizations`, `PATCH /api/factories/{id}/organization`,
+`PATCH /api/factories/{id}/consent`, `POST /api/organizations/{id}/api-keys`).
+The one deliberate exception is `PATCH /api/organizations/{id}/tier` (the
+"Upgrade to Pro" demo mechanic), left open since it's mocked and harmless.
+
+Seeded demo accounts (`app/db/seed_loader.py`), password `induscope-demo` for
+all three: `sme@induscope.demo`, `consultant@induscope.demo`,
+`regulator@induscope.demo`.
+
+Disclosed gaps, not hidden: no rate limiting on login attempts, no password
+reset, no refresh-token rotation — real enough to close "anyone can mutate
+anything" but not a production auth system.
+
 ## Endpoints implemented (Phase 4, no ML dependency)
 
 | Endpoint | Notes |

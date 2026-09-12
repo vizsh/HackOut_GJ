@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useFactoryStore } from "../store/useFactoryStore";
+import { useAuthStore } from "../store/useAuthStore";
 import { severityColor, formatInr } from "../lib/severity";
 import { api, type ApiOrganization } from "../lib/api";
+import LoginGate from "../components/business/LoginGate";
 import type { Factory, Severity } from "../types";
 
 type SortKey = "co2" | "deviation" | "hotspots" | "avoidable";
@@ -33,6 +35,8 @@ export default function PortfolioPage() {
   const [orgs, setOrgs] = useState<ApiOrganization[]>([]);
   const [orgByFactoryId, setOrgByFactoryId] = useState<Record<string, string | null>>({});
   const [newOrgName, setNewOrgName] = useState("");
+  const [orgError, setOrgError] = useState<string | null>(null);
+  const token = useAuthStore((s) => s.token);
 
   const loadOrgs = () => {
     api.organizations().then(setOrgs).catch(() => {});
@@ -44,15 +48,27 @@ export default function PortfolioPage() {
 
   const createOrg = async () => {
     if (!newOrgName.trim()) return;
-    await api.createOrganization(newOrgName.trim());
-    setNewOrgName("");
-    loadOrgs();
+    setOrgError(null);
+    try {
+      await api.createOrganization(newOrgName.trim());
+      setNewOrgName("");
+      loadOrgs();
+    } catch (e) {
+      setOrgError(e instanceof Error ? e.message : String(e));
+    }
   };
 
   const assign = async (factoryId: string, organizationId: string) => {
+    const prevValue = orgByFactoryId[factoryId] ?? null;
     setOrgByFactoryId((prev) => ({ ...prev, [factoryId]: organizationId || null }));
-    await api.assignFactoryOrganization(factoryId, organizationId || null);
-    loadOrgs();
+    setOrgError(null);
+    try {
+      await api.assignFactoryOrganization(factoryId, organizationId || null);
+      loadOrgs();
+    } catch (e) {
+      setOrgByFactoryId((prev) => ({ ...prev, [factoryId]: prevValue })); // roll back the optimistic update
+      setOrgError(e instanceof Error ? e.message : String(e));
+    }
   };
 
   const rows = useMemo(() => {
@@ -118,15 +134,23 @@ export default function PortfolioPage() {
             {o.logo_text || o.name} · {o.factory_count} factories · {o.tier}
           </span>
         ))}
-        <input
-          value={newOrgName}
-          onChange={(e) => setNewOrgName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && createOrg()}
-          placeholder="New organization name"
-          className="rounded-md border border-[color:var(--color-border)] bg-[color:var(--color-panel-2)] px-2 py-1 text-[11px] outline-none"
-        />
-        <button onClick={createOrg} className="rounded-md border border-[color:var(--color-border)] px-2 py-1 text-[11px] hover:bg-[color:var(--color-panel-2)]">+ Create</button>
+        {token ? (
+          <>
+            <input
+              value={newOrgName}
+              onChange={(e) => setNewOrgName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && createOrg()}
+              placeholder="New organization name"
+              className="rounded-md border border-[color:var(--color-border)] bg-[color:var(--color-panel-2)] px-2 py-1 text-[11px] outline-none"
+            />
+            <button onClick={createOrg} className="rounded-md border border-[color:var(--color-border)] px-2 py-1 text-[11px] hover:bg-[color:var(--color-panel-2)]">+ Create</button>
+          </>
+        ) : (
+          <span className="text-[11px] text-[color:var(--color-muted)]">Sign in below to create an organization or assign factories to one.</span>
+        )}
       </div>
+      {!token && <LoginGate feature="manage organizations and factory assignments" />}
+      {orgError && <p className="text-[11px] text-[color:var(--color-crit)]">{orgError}</p>}
 
       <div className="glass flex-1 overflow-auto rounded-xl">
         <table className="w-full text-[12px]">

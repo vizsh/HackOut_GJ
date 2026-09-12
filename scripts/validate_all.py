@@ -351,6 +351,52 @@ def stage_smoke_test() -> None:
         else:
             print("  OK  GET .../benchmark capacity_band level -> honestly unavailable for Chemicals (not sourced)")
 
+    # Real auth (app/auth.py) — mutating business-layer endpoints must
+    # reject unauthenticated requests and accept a real logged-in session.
+    unauth = client.post("/api/organizations", json={"name": "Should Be Rejected"})
+    if unauth.status_code != 401:
+        failures.append(f"POST /api/organizations with no auth: got {unauth.status_code}, expected 401")
+    else:
+        print("  OK  POST /api/organizations with no auth -> 401 (rejected)")
+
+    bad_login = client.post("/api/auth/login", json={"email": "consultant@induscope.demo", "password": "wrong"})
+    if bad_login.status_code != 401:
+        failures.append(f"POST /api/auth/login with wrong password: got {bad_login.status_code}, expected 401")
+
+    login = client.post("/api/auth/login", json={"email": "consultant@induscope.demo", "password": "induscope-demo"})
+    if login.status_code != 200 or "token" not in login.json():
+        failures.append(f"POST /api/auth/login with correct demo credentials: got {login.status_code}, expected 200 + token")
+    else:
+        token = login.json()["token"]
+        headers = {"Authorization": f"Bearer {token}"}
+        print("  OK  POST /api/auth/login with correct credentials -> 200 + session token")
+
+        me = client.get("/api/auth/me", headers=headers)
+        if me.status_code != 200 or me.json().get("role") != "consultant":
+            failures.append(f"GET /api/auth/me with valid token: got {me.status_code}/{me.json()}, expected 200 role=consultant")
+        else:
+            print("  OK  GET /api/auth/me with valid token -> 200, role=consultant")
+
+        auth_create = client.post("/api/organizations", json={"name": "CI Auth Test Org"}, headers=headers)
+        if auth_create.status_code != 201:
+            failures.append(f"POST /api/organizations with valid auth: got {auth_create.status_code}, expected 201")
+        else:
+            print("  OK  POST /api/organizations with valid auth -> 201")
+
+        tampered = client.get("/api/auth/me", headers={"Authorization": "Bearer " + token[:-5] + "aaaaa"})
+        if tampered.status_code != 401:
+            failures.append(f"GET /api/auth/me with a tampered token: got {tampered.status_code}, expected 401")
+        else:
+            print("  OK  GET /api/auth/me with a tampered token -> 401 (signature check works)")
+
+    # The Pro-tier toggle is a deliberate, disclosed exception — must stay open
+    open_tier = client.patch("/api/organizations/demo-consultancy/tier", json={"tier": "free"})
+    if open_tier.status_code != 200:
+        failures.append(f"PATCH .../tier with no auth (should stay open, disclosed exception): "
+                         f"got {open_tier.status_code}, expected 200")
+    else:
+        print("  OK  PATCH .../organizations/{id}/tier with no auth -> 200 (deliberately open demo mechanic)")
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()

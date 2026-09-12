@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { useFactoryStore } from "../../store/useFactoryStore";
 import { useTranslation } from "../../store/useLanguageStore";
 import { useRoleStore, type Role } from "../../store/useRoleStore";
+import { useAuthStore } from "../../store/useAuthStore";
 import { languageNames, type Language, type Translations } from "../../lib/i18n";
 import UsageMeter from "../business/UsageMeter";
 
@@ -28,6 +29,8 @@ export default function Header() {
   const role = useRoleStore((s) => s.role);
   const setRole = useRoleStore((s) => s.setRole);
   const tier = useRoleStore((s) => s.tier);
+  const authUser = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
 
   return (
     <header className="flex items-center justify-between border-b border-[color:var(--color-border)] px-4 md:px-6 py-2.5">
@@ -70,6 +73,12 @@ export default function Header() {
       </nav>
 
       <div className="flex items-center gap-3 text-right">
+        {authUser && (
+          <span className="hidden items-center gap-1.5 rounded-full border border-[color:var(--color-ok)]/50 px-2.5 py-1 text-[10px] text-[color:var(--color-ok)] lg:flex" title={`Logged in as ${authUser.email}`}>
+            {authUser.email}
+            <button onClick={logout} className="text-[color:var(--color-muted)] hover:text-[color:var(--color-text)]">Log out</button>
+          </span>
+        )}
         <UsageMeter kind="report_generated" />
         {/* Role switcher — no real auth, a demo persona toggle that gates nav/features */}
         <select

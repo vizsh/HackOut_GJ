@@ -21,9 +21,9 @@ from .base import Base
 
 class Organization(Base):
     """A consulting firm / SME group workspace — the unit white-labeled
-    reports and portfolio grouping hang off. Not an auth system: no login,
-    no real user accounts. `tier` gates simulator/symbiosis/report/BRSR
-    features in the frontend and the free-report usage meter below."""
+    reports and portfolio grouping hang off, and (see User below) the unit
+    real logged-in users belong to. `tier` gates simulator/symbiosis/report/
+    BRSR features in the frontend and the free-report usage meter below."""
     __tablename__ = "organizations"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -34,6 +34,25 @@ class Organization(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     factories: Mapped[list["Factory"]] = relationship(back_populates="organization")
+    users: Mapped[list["User"]] = relationship(back_populates="organization")
+
+
+class User(Base):
+    """A real logged-in account — see app/auth.py for the password hashing
+    (PBKDF2-HMAC-SHA256, stdlib only) and signed session tokens
+    (HMAC-SHA256, no JWT library needed) behind POST /api/auth/login. Closes
+    a real, previously-disclosed gap: organizations/consent/API-keys were
+    real backend objects with zero authentication in front of them."""
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String, nullable=False)
+    role: Mapped[str] = mapped_column(String, nullable=False)  # sme | consultant | regulator
+    organization_id: Mapped[Optional[str]] = mapped_column(ForeignKey("organizations.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    organization: Mapped[Optional["Organization"]] = relationship(back_populates="users")
 
 
 class UsageEvent(Base):

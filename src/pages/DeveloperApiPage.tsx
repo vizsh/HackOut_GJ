@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useRoleStore } from "../store/useRoleStore";
+import { useAuthStore } from "../store/useAuthStore";
 import { api, type ApiKeyResult } from "../lib/api";
+import LoginGate from "../components/business/LoginGate";
 
 // A real, documented, rate-limited public API tier — GET /api/public/v1/factories/{id}
 // scoped to an X-API-Key header, backed by backend/app/routers/business.py's
@@ -10,6 +12,7 @@ import { api, type ApiKeyResult } from "../lib/api";
 // the curl example below is copy-pasteable against the running backend.
 export default function DeveloperApiPage() {
   const organizationId = useRoleStore((s) => s.organizationId);
+  const token = useAuthStore((s) => s.token);
   const [minted, setMinted] = useState<ApiKeyResult | null>(null);
   const [label, setLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -44,17 +47,21 @@ export default function DeveloperApiPage() {
 
       <section className="glass rounded-xl p-4">
         <h3 className="text-sm font-semibold">Generate an API key</h3>
-        <div className="mt-2 flex gap-2">
-          <input
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="Key label (e.g. 'Tally ERP integration')"
-            className="flex-1 rounded-md border border-[color:var(--color-border)] bg-[color:var(--color-panel-2)] px-3 py-2 text-xs outline-none focus:border-[color:var(--color-accent)]"
-          />
-          <button onClick={mint} disabled={busy} className="rounded-lg bg-[color:var(--color-accent)] px-4 py-2 text-xs font-semibold text-[#07101c] disabled:opacity-50">
-            {busy ? "Generating…" : "Generate key"}
-          </button>
-        </div>
+        {!token ? (
+          <div className="mt-2"><LoginGate feature="mint an API key" /></div>
+        ) : (
+          <div className="mt-2 flex gap-2">
+            <input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Key label (e.g. 'Tally ERP integration')"
+              className="flex-1 rounded-md border border-[color:var(--color-border)] bg-[color:var(--color-panel-2)] px-3 py-2 text-xs outline-none focus:border-[color:var(--color-accent)]"
+            />
+            <button onClick={mint} disabled={busy} className="rounded-lg bg-[color:var(--color-accent)] px-4 py-2 text-xs font-semibold text-[#07101c] disabled:opacity-50">
+              {busy ? "Generating…" : "Generate key"}
+            </button>
+          </div>
+        )}
         {error && <p className="mt-2 text-[11px] text-[color:var(--color-crit)]">{error}</p>}
         {minted && (
           <div className="mt-3 rounded-lg border border-[color:var(--color-ok)]/40 bg-[color:var(--color-ok)]/5 p-3">

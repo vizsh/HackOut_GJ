@@ -19,6 +19,7 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from .. import auth
 from .. import models as m
 from .. import seed as seed_data
 from ..engine import emissions, intensity, units
@@ -69,6 +70,20 @@ def _seed_catalogs(session: Session) -> None:
         id="demo-consultancy", name="Gujarat Decarb Advisors (demo)", tier="free",
         brand_color="#3ea6ff", logo_text="GDA",
     ))
+
+    # Demo accounts so the real login (app/auth.py) is usable without a
+    # signup flow — one per role, all in the demo org. Passwords are
+    # deliberately simple and printed in backend/README.md: this is a
+    # hackathon demo credential set, not a production account.
+    for uid, email, role in [
+        ("demo-sme", "sme@induscope.demo", "sme"),
+        ("demo-consultant", "consultant@induscope.demo", "consultant"),
+        ("demo-regulator", "regulator@induscope.demo", "regulator"),
+    ]:
+        session.add(db.User(
+            id=uid, email=email, password_hash=auth.hash_password("induscope-demo"),
+            role=role, organization_id="demo-consultancy",
+        ))
     session.commit()
 
 
