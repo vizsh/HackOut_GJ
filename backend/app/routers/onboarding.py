@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import csv
+import io
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
@@ -241,33 +243,18 @@ def recompute_factory(factory_id: str, session: Session = Depends(get_db)):
     return schemas.RecomputeOut(factory_id=factory_id, anomaly_check_status=_factory_level_status(results), equipment=results)
 
 
-@router.post("/{factory_id}/activity", response_model=schemas.RecomputeOut)
-def append_activity(factory_id: str, payload: list[schemas.ActivityAppendIn], session: Session = Depends(get_db)):
-    """Onboarding (POST /api/factories) is one-shot — this is how an
-    already-onboarded factory submits another real month of activity data for
-    its existing processes. Automatically re-runs the recompute job below
-    afterward, so anomaly detection activates on its own the moment enough
-    real months exist, rather than requiring a separate manual trigger.
-
-    Known limitation, disclosed rather than hidden: actual_intensity here is
-    still computed against `output_tonnes_total` from the original one-shot
-    onboarding call (treated as an annual figure), so this model only stays
-    accurate within a single reporting year of appended months — a real
-    per-period-output submission flow is future work, not built here.
-    """
-    factory = session.get(db.Factory, factory_id)
-    if factory is None:
-        raise HTTPException(404, f"factory '{factory_id}' not found")
-    if factory.data_source != "self_reported":
-        raise HTTPException(400, "activity can only be appended to self-reported (onboarded) factories")
-
+def _apply_activity_entries(session: Session, factory: db.Factory, entries: list[schemas.ActivityAppendIn]) -> None:
+    """Shared core of POST .../activity (JSON) and POST .../activity/csv —
+    same validation, same engine calls, same EnergyRecord/EmissionRecord
+    writes, regardless of which format the data arrived in. Neither endpoint
+    duplicates this logic."""
     ef_table = seed_data.emission_factors()
     equip_by_process = {e.process_id: e for e in factory.equipment}
 
-    for entry in payload:
+    for entry in entries:
         equip = equip_by_process.get(entry.process_id)
         if equip is None:
-            raise HTTPException(404, f"process_id '{entry.process_id}' not found on factory '{factory_id}'")
+            raise HTTPException(404, f"process_id '{entry.process_id}' not found on factory '{factory.id}'")
         for act in entry.activities:
             if act.fuel_key not in ef_table:
                 raise HTTPException(422, f"unknown fuel_key '{act.fuel_key}'. Accepted: {list(ef_table)}")
@@ -285,6 +272,86 @@ def append_activity(factory_id: str, payload: list[schemas.ActivityAppendIn], se
                 emission_factor_kgco2e_per_unit=normalised.kgco2e_per_unit, emission_factor_source=normalised.source,
             ))
 
+
+def _get_self_reported_factory_or_error(session: Session, factory_id: str) -> db.Factory:
+    factory = session.get(db.Factory, factory_id)
+    if factory is None:
+        raise HTTPException(404, f"factory '{factory_id}' not found")
+    if factory.data_source != "self_reported":
+        raise HTTPException(400, "activity can only be appended to self-reported (onboarded) factories")
+    return factory
+
+
+@router.post("/{factory_id}/activity", response_model=schemas.RecomputeOut)
+def append_activity(factory_id: str, payload: list[schemas.ActivityAppendIn], session: Session = Depends(get_db)):
+    """Onboarding (POST /api/factories) is one-shot — this is how an
+    already-onboarded factory submits another real month of activity data for
+    its existing processes. Automatically re-runs the recompute job below
+    afterward, so anomaly detection activates on its own the moment enough
+    real months exist, rather than requiring a separate manual trigger.
+
+    Known limitation, disclosed rather than hidden: actual_intensity here is
+    still computed against `output_tonnes_total` from the original one-shot
+    onboarding call (treated as an annual figure), so this model only stays
+    accurate within a single reporting year of appended months — a real
+    per-period-output submission flow is future work, not built here.
+    """
+    factory = _get_self_reported_factory_or_error(session, factory_id)
+    _apply_activity_entries(session, factory, payload)
+    results = [_recompute_equipment_anomalies(session, e, factory) for e in factory.equipment]
+    session.commit()
+    return schemas.RecomputeOut(factory_id=factory_id, anomaly_check_status=_factory_level_status(results), equipment=results)
+
+
+ACTIVITY_CSV_COLUMNS = ["process_id", "fuel_key", "unit", "quantity", "month"]
+ACTIVITY_CSV_TEMPLATE = (
+    "process_id,fuel_key,unit,quantity,month\n"
+    "kiln,natural_gas,SCM,420000,2026-05\n"
+    "kiln,pet_coke,t,12.5,2026-05\n"
+    "compressor,grid_electricity,MWh,38,2026-05\n"
+)
+
+
+@router.post("/{factory_id}/activity/csv", response_model=schemas.RecomputeOut)
+async def append_activity_csv(factory_id: str, file: UploadFile, session: Session = Depends(get_db)):
+    """Bulk version of POST .../activity: one row per (process, fuel, month)
+    reading, straight from the columns a real utility bill / fuel-purchase
+    log already has — closes the "dark data" gap the source research doc
+    names directly (Part C.6: the evidence a leak/trend exists is usually
+    already sitting in a bill or log, just never analysed as a pattern).
+    Reuses the exact same validation and engine calls as the JSON endpoint
+    via _apply_activity_entries — this is a parsing convenience, not a
+    second code path with its own logic.
+    """
+    factory = _get_self_reported_factory_or_error(session, factory_id)
+
+    raw = (await file.read()).decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(raw))
+    missing_cols = [c for c in ACTIVITY_CSV_COLUMNS if c not in (reader.fieldnames or [])]
+    if missing_cols:
+        raise HTTPException(422, f"CSV missing required column(s): {missing_cols}. "
+                                  f"Expected header: {','.join(ACTIVITY_CSV_COLUMNS)}")
+
+    grouped: dict[str, list[schemas.OnboardActivityIn]] = {}
+    row_count = 0
+    for line_no, row in enumerate(reader, start=2):  # header is line 1
+        row_count += 1
+        try:
+            quantity = float(row["quantity"])
+        except (TypeError, ValueError):
+            raise HTTPException(422, f"row {line_no}: quantity '{row.get('quantity')}' is not a number")
+        process_id = (row["process_id"] or "").strip()
+        if not process_id:
+            raise HTTPException(422, f"row {line_no}: process_id is blank")
+        grouped.setdefault(process_id, []).append(schemas.OnboardActivityIn(
+            fuel_key=(row["fuel_key"] or "").strip(), unit=(row["unit"] or "").strip(),
+            quantity=quantity, month=(row["month"] or "").strip(),
+        ))
+    if row_count == 0:
+        raise HTTPException(422, "CSV has a header but no data rows")
+
+    entries = [schemas.ActivityAppendIn(process_id=pid, activities=acts) for pid, acts in grouped.items()]
+    _apply_activity_entries(session, factory, entries)
     results = [_recompute_equipment_anomalies(session, e, factory) for e in factory.equipment]
     session.commit()
     return schemas.RecomputeOut(factory_id=factory_id, anomaly_check_status=_factory_level_status(results), equipment=results)

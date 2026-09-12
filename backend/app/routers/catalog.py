@@ -4,12 +4,15 @@ import sys
 from pathlib import Path
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import carbon_credit, schemas
 from ..db import models as db
 from ..deps import get_db
+from . import leaks as leaks_router
+from . import onboarding as onboarding_router
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 if str(REPO_ROOT) not in sys.path:
@@ -18,6 +21,27 @@ if str(REPO_ROOT) not in sys.path:
 from ml.registry import registry  # noqa: E402
 
 router = APIRouter(prefix="/api", tags=["catalog"])
+
+
+@router.get("/csv-templates/activity", response_class=PlainTextResponse)
+def activity_csv_template():
+    """Downloadable starting point for POST /api/factories/{id}/activity/csv
+    — the same fields already on a real utility bill (fuel type, quantity,
+    billing month). Kept in this router (not under /api/factories) so its
+    literal path never collides with GET /api/factories/{factory_id}."""
+    return PlainTextResponse(
+        onboarding_router.ACTIVITY_CSV_TEMPLATE, media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=induscope_activity_template.csv"},
+    )
+
+
+@router.get("/csv-templates/leak-assessments", response_class=PlainTextResponse)
+def leak_assessments_csv_template():
+    """Downloadable starting point for POST /api/factories/{id}/leak-assessments/csv."""
+    return PlainTextResponse(
+        leaks_router.LEAK_CSV_TEMPLATE, media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=induscope_leak_assessments_template.csv"},
+    )
 
 
 @router.get("/ml/status")

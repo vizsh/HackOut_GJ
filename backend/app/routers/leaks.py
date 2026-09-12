@@ -7,7 +7,10 @@ app/water_benchmark.py for the actual sourced methods.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+import csv
+import io
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -104,6 +107,96 @@ def refrigerant_leak(factory_id: str, payload: schemas.RefrigerantLeakIn, sessio
         session, factory.id, "refrigerant", "topup_vs_nameplate", payload.model_dump(),
         result.leak_rate_pct, result.co2e_tpy, result.replacement_cost_inr_per_year, result.note,
     )
+
+
+LEAK_CSV_COLUMNS = [
+    "kind", "rated_capacity_cfm", "load_time_min", "unload_time_min",
+    "operating_hours_per_year", "electricity_rate_inr_per_kwh", "specific_power_kw_per_100cfm",
+    "refrigerant_key", "nameplate_charge_kg", "annual_topup_kg", "refrigerant_cost_inr_per_kg",
+]
+LEAK_CSV_TEMPLATE = (
+    ",".join(LEAK_CSV_COLUMNS) + "\n"
+    "compressed_air_load_unload,500,3.0,7.0,6000,8.0,,,,,\n"
+    "compressed_air_unaudited,350,6000,8.0,,,,,,\n"
+    "refrigerant,,,,,,,r404a,1000,142,1200\n"
+)
+
+
+def _csv_float(row: dict, key: str) -> float | None:
+    val = (row.get(key) or "").strip()
+    if not val:
+        return None
+    try:
+        return float(val)
+    except ValueError:
+        raise HTTPException(422, f"'{key}' value '{val}' is not a number")
+
+
+@router.post("/{factory_id}/leak-assessments/csv", response_model=list[schemas.LeakAssessmentOut], status_code=201)
+async def import_leak_assessments_csv(factory_id: str, file: UploadFile, session: Session = Depends(get_db)):
+    """Bulk version of the three leak-assessment endpoints above — one row
+    per assessment, `kind` selects which real method (see
+    app/intelligence/leak_estimators.py) each row is computed with. Closes
+    the same "dark data" gap as the activity CSV importer: a compressor
+    load/unload log or a year of refrigerant top-up invoices is exactly the
+    kind of data this maps onto, entered once instead of one form submission
+    per reading.
+    """
+    factory = _get_factory_or_404(session, factory_id)
+    grid_ef = _grid_kgco2e_per_kwh(session)
+
+    raw = (await file.read()).decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(raw))
+    if "kind" not in (reader.fieldnames or []):
+        raise HTTPException(422, f"CSV missing required 'kind' column. Expected header: {','.join(LEAK_CSV_COLUMNS)}")
+
+    results: list[db.LeakAssessment] = []
+    row_count = 0
+    for line_no, row in enumerate(reader, start=2):
+        row_count += 1
+        kind = (row.get("kind") or "").strip()
+        specific_power = _csv_float(row, "specific_power_kw_per_100cfm")
+        kwargs = {"specific_power_kw_per_100cfm": specific_power} if specific_power else {}
+
+        if kind == "compressed_air_load_unload":
+            result = le.compressed_air_leak_from_load_unload_test(
+                rated_capacity_cfm=_csv_float(row, "rated_capacity_cfm") or 0.0,
+                load_time_min=_csv_float(row, "load_time_min") or 0.0,
+                unload_time_min=_csv_float(row, "unload_time_min") or 0.0,
+                operating_hours_per_year=_csv_float(row, "operating_hours_per_year") or 8760.0,
+                electricity_rate_inr_per_kwh=_csv_float(row, "electricity_rate_inr_per_kwh") or 0.0,
+                grid_kgco2e_per_kwh=grid_ef, **kwargs,
+            )
+            results.append(_persist(session, factory.id, "compressed_air", result.method, row,
+                                     result.leak_fraction * 100, result.co2e_tpy, result.cost_inr_per_year, result.note))
+        elif kind == "compressed_air_unaudited":
+            result = le.compressed_air_leak_unaudited_default(
+                rated_capacity_cfm=_csv_float(row, "rated_capacity_cfm") or 0.0,
+                operating_hours_per_year=_csv_float(row, "operating_hours_per_year") or 8760.0,
+                electricity_rate_inr_per_kwh=_csv_float(row, "electricity_rate_inr_per_kwh") or 0.0,
+                grid_kgco2e_per_kwh=grid_ef, **kwargs,
+            )
+            results.append(_persist(session, factory.id, "compressed_air", result.method, row,
+                                     result.leak_fraction * 100, result.co2e_tpy, result.cost_inr_per_year, result.note))
+        elif kind == "refrigerant":
+            try:
+                result = le.refrigerant_leak_from_topup(
+                    refrigerant_key=(row.get("refrigerant_key") or "").strip(),
+                    nameplate_charge_kg=_csv_float(row, "nameplate_charge_kg") or 0.0,
+                    annual_topup_kg=_csv_float(row, "annual_topup_kg") or 0.0,
+                    refrigerant_cost_inr_per_kg=_csv_float(row, "refrigerant_cost_inr_per_kg") or 0.0,
+                )
+            except ValueError as e:
+                raise HTTPException(422, f"row {line_no}: {e}")
+            results.append(_persist(session, factory.id, "refrigerant", "topup_vs_nameplate", row,
+                                     result.leak_rate_pct, result.co2e_tpy, result.replacement_cost_inr_per_year, result.note))
+        else:
+            raise HTTPException(422, f"row {line_no}: unknown kind '{kind}'. Accepted: "
+                                      "compressed_air_load_unload, compressed_air_unaudited, refrigerant")
+
+    if row_count == 0:
+        raise HTTPException(422, "CSV has a header but no data rows")
+    return results
 
 
 @router.get("/{factory_id}/leak-assessments", response_model=list[schemas.LeakAssessmentOut])

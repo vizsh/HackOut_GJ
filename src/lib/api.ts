@@ -334,6 +334,31 @@ export const api = {
   // Public API tier
   createApiKey: (orgId: string, label = "") => postJson<ApiKeyResult>(`/api/organizations/${orgId}/api-keys`, { label }),
 
+  // CSV bulk importers — the "dark data" closer: upload the bill/log you
+  // already have instead of retyping it field by field.
+  activityCsvTemplateUrl: () => `${API_BASE}/api/csv-templates/activity`,
+  leakAssessmentsCsvTemplateUrl: () => `${API_BASE}/api/csv-templates/leak-assessments`,
+  importActivityCsv: async (factoryId: string, file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    const res = await fetch(`${API_BASE}/api/factories/${factoryId}/activity/csv`, { method: "POST", body });
+    if (!res.ok) {
+      const detail = await res.json().catch(() => null);
+      throw new Error(detail?.detail ?? `Upload failed: ${res.status}`);
+    }
+    return res.json();
+  },
+  importLeakAssessmentsCsv: async (factoryId: string, file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    const res = await fetch(`${API_BASE}/api/factories/${factoryId}/leak-assessments/csv`, { method: "POST", body });
+    if (!res.ok) {
+      const detail = await res.json().catch(() => null);
+      throw new Error(detail?.detail ?? `Upload failed: ${res.status}`);
+    }
+    return res.json() as Promise<ApiLeakAssessment[]>;
+  },
+
   // Leak diagnostics (compressed air / refrigerant / water / cross-process)
   leakAssessments: (factoryId: string) => getJson<ApiLeakAssessment[]>(`/api/factories/${factoryId}/leak-assessments`),
   compressedAirLoadUnloadTest: (factoryId: string, body: {

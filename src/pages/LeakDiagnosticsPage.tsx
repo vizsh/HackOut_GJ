@@ -40,6 +40,43 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function CsvImportRow({ label, templateUrl, onUpload, disabled }: {
+  label: string; templateUrl: string; onUpload: (file: File) => Promise<void>; disabled: boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      await onUpload(file);
+      setMessage("Imported ✓");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-[11px]">
+      <span className="w-40 shrink-0 font-medium">{label}</span>
+      <a href={templateUrl} download className="rounded-md border border-[color:var(--color-border)] px-2 py-1 hover:bg-[color:var(--color-panel-2)]">
+        Download template
+      </a>
+      <label className={`rounded-md border border-[color:var(--color-accent)]/50 px-2 py-1 text-[color:var(--color-accent)] hover:bg-[color:var(--color-accent)]/10 ${disabled || busy ? "pointer-events-none opacity-50" : "cursor-pointer"}`}>
+        {busy ? "Uploading…" : "Upload CSV"}
+        <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleFile} disabled={disabled || busy} />
+      </label>
+      {message && <span className={message === "Imported ✓" ? "text-[color:var(--color-ok)]" : "text-[color:var(--color-crit)]"}>{message}</span>}
+    </div>
+  );
+}
+
 function ResultCard({ r }: { r: ApiLeakAssessment }) {
   return (
     <div className="rounded-lg border border-[color:var(--color-accent)]/40 bg-[color:var(--color-accent)]/5 p-3 text-[12px]">
@@ -150,6 +187,23 @@ export default function LeakDiagnosticsPage() {
       </div>
 
       {error && <p className="text-[12px] text-[color:var(--color-crit)]">{error}</p>}
+
+      <Card title="Bulk import from CSV" subtitle="Already have a utility bill, a compressor load/unload log, or a year of refrigerant top-up invoices? Upload the whole file instead of retyping it row by row.">
+        <div className="space-y-2">
+          <CsvImportRow
+            label="Monthly activity"
+            templateUrl={api.activityCsvTemplateUrl()}
+            disabled={!factory.id}
+            onUpload={async (file) => { await api.importActivityCsv(factory.id, file); reload(); }}
+          />
+          <CsvImportRow
+            label="Leak assessments"
+            templateUrl={api.leakAssessmentsCsvTemplateUrl()}
+            disabled={!factory.id}
+            onUpload={async (file) => { await api.importLeakAssessmentsCsv(factory.id, file); reload(); }}
+          />
+        </div>
+      </Card>
 
       {workerFlags.length > 0 && (
         <section className="glass rounded-xl border border-[color:var(--color-warn)]/40 p-4">

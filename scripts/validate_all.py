@@ -246,6 +246,43 @@ def stage_smoke_test() -> None:
             print(f"  OK  live feature-window job activated anomaly detection after 4 months "
                   f"(equipment: {final['equipment']})")
 
+        # CSV bulk importers (dark-data closer) — activity + leak-assessments
+        ct = client.get("/api/csv-templates/activity")
+        lt = client.get("/api/csv-templates/leak-assessments")
+        if ct.status_code != 200 or lt.status_code != 200:
+            failures.append(f"CSV templates: activity={ct.status_code}, leak-assessments={lt.status_code}, expected 200/200")
+        else:
+            print("  OK  GET /api/csv-templates/activity and .../leak-assessments -> 200")
+
+        csv_body = "process_id,fuel_key,unit,quantity,month\nkiln,natural_gas,SCM,480000,2026-05\n"
+        csv_resp = client.post(f"/api/factories/{onboarded_id}/activity/csv",
+                                files={"file": ("activity.csv", csv_body, "text/csv")})
+        if csv_resp.status_code != 200:
+            failures.append(f"POST .../activity/csv: got {csv_resp.status_code}, expected 200")
+        else:
+            print(f"  OK  POST .../activity/csv -> 200, {csv_resp.json()['equipment'][0]['n_months']} months on file")
+
+        leak_csv_body = (
+            "kind,rated_capacity_cfm,load_time_min,unload_time_min,operating_hours_per_year,"
+            "electricity_rate_inr_per_kwh,specific_power_kw_per_100cfm,refrigerant_key,"
+            "nameplate_charge_kg,annual_topup_kg,refrigerant_cost_inr_per_kg\n"
+            "compressed_air_load_unload,500,3.0,7.0,6000,8.0,,,,,\n"
+        )
+        leak_csv_resp = client.post(f"/api/factories/{onboarded_id}/leak-assessments/csv",
+                                     files={"file": ("leaks.csv", leak_csv_body, "text/csv")})
+        if leak_csv_resp.status_code != 201 or abs(leak_csv_resp.json()[0]["leak_rate_pct"] - 30.0) > 0.1:
+            failures.append(f"POST .../leak-assessments/csv: got {leak_csv_resp.status_code}, "
+                             f"expected 201 with leak_rate_pct=30.0")
+        else:
+            print("  OK  POST .../leak-assessments/csv -> 201, leak_rate_pct=30.0 (matches JSON-endpoint formula)")
+
+        bad_csv_resp = client.post(f"/api/factories/{onboarded_id}/activity/csv",
+                                    files={"file": ("bad.csv", "process_id,fuel_key\nkiln,natural_gas\n", "text/csv")})
+        if bad_csv_resp.status_code != 422:
+            failures.append(f"POST .../activity/csv with malformed CSV: got {bad_csv_resp.status_code}, expected 422")
+        else:
+            print("  OK  POST .../activity/csv with malformed CSV -> 422 (rejected cleanly)")
+
     print("  SKIPPED  POST /api/ask, /api/ask/stream — need a live Ollama server, "
           "not exercised here to keep this smoke test fast and deterministic")
 
