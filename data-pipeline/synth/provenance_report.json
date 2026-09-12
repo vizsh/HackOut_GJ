@@ -19,7 +19,7 @@
     "Textiles": 24,
     "Engineering": 29
   },
-  "injected_anomaly_count": 23,
+  "injected_anomaly_count": 26,
   "injected_anomaly_factory_count": 20,
   "field_provenance": {
     "cluster_geography": "real (see clean/clusters.csv, sources.md #5)",
@@ -27,6 +27,7 @@
     "process_benchmark_intensities": "documented estimate, medium confidence, except Textiles which is real BEE PAT Cycle-1 (see clean/sector_benchmarks.csv, sources.md #4)",
     "waste_ratios": "calibrated to CPCB 2019-20 Gujarat state total order-of-magnitude (see clean/waste_ratios.csv, sources.md #3)",
     "factory_identity_and_time_series": "100% synthetic, seeded+reproducible (this script)",
-    "output_scale_ranges": "is_placeholder, illustrative only (see LIMITATIONS.md #7)"
+    "output_scale_ranges": "is_placeholder, illustrative only (see LIMITATIONS.md #7)",
+    "monthly_noise_model": "Ceramics/Textiles: coefficient of variation sourced from real BEE/SAMEEEKSHA cluster-manual SEC-range tables (Morbi ceramics Table 7, Surat textiles Table 5); Chemicals/Engineering: unsourced placeholder, unchanged from the original modelling choice (see LIMITATIONS.md #10, SEC_CV_BY_SECTOR in this script)"
   }
 }

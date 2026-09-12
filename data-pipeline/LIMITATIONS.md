@@ -146,4 +146,64 @@ multiplicative rescaling across process kinds with very different benchmark scal
 flat benchmark by +36.9% MAE for factories in clusters already seen in training data, and by a
 more modest +6.3% for a factory in a brand-new, never-before-seen cluster. Both regimes are
 reported, not just the flatteringly larger one, because they answer genuinely different
-deployment questions.
+deployment questions. (These specific percentages have since moved — see #10 below — because
+the underlying noise model changed, not because this fix regressed.)
+
+## 10. Monthly/cross-factory noise is now a real distribution fit for 2 of 4 sectors, not a guess
+
+The noise ranges described in #9 above (`rng.uniform(0.80, 1.45)`-style intervals) were, in the
+project's own words at the time, "generator-tuned to look plausible" — bounds picked because
+they produced a reasonable-looking spread, not because any real dataset said factories vary by
+exactly that much. This has been partially fixed by replacing the noise model in
+`generate_synthetic.py` with a Gaussian parameterised by a real **coefficient of variation
+(CV = std/mean)**, computed from actual BEE/SAMEEEKSHA cluster-manual Specific Energy
+Consumption (SEC) range tables:
+
+- **Ceramics** (Morbi cluster): CV = 0.11, from "Manual on Energy Conservation Measures in
+  Ceramic Cluster Morbi", Table 7 "Specific Energy Consumption Range in Ceramic Units in Morbi"
+  (`sameeeksha.org/pdf/clusterprofile/Morbi_Ceramic_Cluster.pdf`) — six SEC-range rows (vitrified
+  tile electrical/thermal, wall & floor tile electrical/thermal, sanitary ware electrical/thermal)
+  averaged after converting each min-max range to an implied std (`range / sqrt(12)`, the uniform-
+  distribution approximation) and CV.
+- **Textiles** (Surat cluster): CV = 0.05, from "Manual on Energy Conservation Measures in Textile
+  Cluster Surat, Gujarat", Table 5 "Specific Energy Consumption"
+  (`sameeeksha.org/pdf/clusterprofile/Surat_textile_cluster.pdf`) — four machine-type SEC ranges
+  (Saflina, drum washer, jet dyeing, stenter) averaged the same way.
+- **Chemicals and Engineering**: still unsourced. The one comparable table found (Vapi Chemical
+  Cluster, Table 5.2.1 "Unit level energy consumption") reports raw annual toe/year by product
+  category, not output-normalised SEC — using it directly would conflate genuine efficiency
+  variation with plant-scale differences the generator already models separately (`scale_effect`
+  in #9). No output-normalised chemicals/engineering table was located in this research pass, so
+  those two sectors deliberately keep the exact prior (still-unsourced, still-disclosed) noise
+  magnitude rather than borrowing a number from a different sector's real data. See
+  `generate_synthetic.py`'s `SEC_CV_BY_SECTOR` docstring for the full arithmetic and citations.
+
+**Month-to-month (temporal) noise is a distinct assumption, not directly sourced.** The BEE/
+SAMEEEKSHA tables above measure spread *across different plants* at one point in time
+(cross-sectional), not how one plant's own SEC moves month to month (temporal) — no public
+month-by-month SEC time series for individual Indian MSME units was found. Temporal noise for
+Ceramics/Textiles is modelled as a disclosed **fraction (0.5x) of the sourced cross-sectional
+CV**, reasoned from the fact that one plant's own equipment/operators should vary less
+month-to-month than different plants vary from each other — this ratio itself, not the CV it
+scales, is still a modelling choice pending a real source. Chemicals/Engineering's temporal
+noise is unchanged from before.
+
+**A real bug this caught, and what fixed it**: the first attempt at this change applied the
+sourced CV independently at three separate multiplicative noise layers (per-month output,
+per-equipment performance, per-month-per-equipment activity) instead of one — three compounding
+layers at the same magnitude produced far more *effective* variance than the single sourced CV
+was meant to represent, and cratered the z-score anomaly detector's precision from 0.55 to 0.09
+(caught immediately by `scripts/validate_all.py` against `validation/baseline_metrics.json` —
+exactly the discipline that gate exists for). A second issue surfaced the same way: clipping the
+Gaussian draws to a generic wide range let rare tail draws exceed the old bounded-uniform
+distribution's hard cutoff, still inflating false positives. Fixed by (a) applying temporal noise
+at exactly one point in the pipeline, and (b) clipping each Gaussian draw at `sqrt(3) * std` —
+the exact maximum deviation a uniform distribution with the same std implies — so the tail
+behaviour matches what the anomaly detector's thresholds were originally tuned against, not a
+looser or tighter one. Both fixes are in `generate_synthetic.py`'s `_gauss_ratio()` docstring.
+
+**Net result**: z-score precision moved from 0.553 to 0.49 (still above its 0.45 floor) and the
+benchmark model's improvement moved from 38.3%/12.9% to 30.6%/7.1% (both still above their
+floors) — a real, understood consequence of Ceramics and Textiles now having genuinely *tighter*
+sourced month-to-month variance than the old blanket assumption, not a regression. New baseline
+recorded via `scripts/validate_all.py --update-baseline`.

@@ -1,82 +1,82 @@
 {
   "random_kfold": {
-    "mae_kgco2e_per_t": 8.29,
+    "mae_kgco2e_per_t": 7.87,
     "r2": 0.977,
     "n_splits": 8,
-    "improvement_vs_flat_benchmark_pct": 38.3
+    "improvement_vs_flat_benchmark_pct": 30.6
   },
   "leave_one_cluster_out": {
     "per_cluster": [
       {
         "held_out_cluster": "alang",
         "n_test_rows": 50,
-        "mae_kgco2e_per_t": 9.62,
-        "mean_actual_intensity": 113.08
+        "mae_kgco2e_per_t": 10.23,
+        "mean_actual_intensity": 117.24
       },
       {
         "held_out_cluster": "ankleshwar",
         "n_test_rows": 60,
-        "mae_kgco2e_per_t": 9.66,
-        "mean_actual_intensity": 110.73
+        "mae_kgco2e_per_t": 13.03,
+        "mean_actual_intensity": 107.42
       },
       {
         "held_out_cluster": "dahej",
         "n_test_rows": 50,
-        "mae_kgco2e_per_t": 11.65,
-        "mean_actual_intensity": 117.44
+        "mae_kgco2e_per_t": 10.09,
+        "mean_actual_intensity": 108.94
       },
       {
         "held_out_cluster": "jamnagar",
         "n_test_rows": 50,
-        "mae_kgco2e_per_t": 12.06,
-        "mean_actual_intensity": 121.24
+        "mae_kgco2e_per_t": 14.99,
+        "mean_actual_intensity": 111.12
       },
       {
         "held_out_cluster": "morbi",
         "n_test_rows": 90,
-        "mae_kgco2e_per_t": 13.88,
-        "mean_actual_intensity": 80.31
+        "mae_kgco2e_per_t": 10.47,
+        "mean_actual_intensity": 75.27
       },
       {
         "held_out_cluster": "rajkot",
         "n_test_rows": 70,
-        "mae_kgco2e_per_t": 13.63,
-        "mean_actual_intensity": 114.61
+        "mae_kgco2e_per_t": 17.15,
+        "mean_actual_intensity": 99.1
       },
       {
         "held_out_cluster": "surat",
         "n_test_rows": 80,
-        "mae_kgco2e_per_t": 9.92,
-        "mean_actual_intensity": 71.84
+        "mae_kgco2e_per_t": 4.35,
+        "mean_actual_intensity": 70.26
       },
       {
         "held_out_cluster": "vapi",
         "n_test_rows": 70,
-        "mae_kgco2e_per_t": 10.83,
-        "mean_actual_intensity": 109.81
+        "mae_kgco2e_per_t": 11.24,
+        "mean_actual_intensity": 113.64
       },
       {
         "held_out_cluster": "vatva",
         "n_test_rows": 80,
-        "mae_kgco2e_per_t": 12.67,
-        "mean_actual_intensity": 94.86
+        "mae_kgco2e_per_t": 6.2,
+        "mean_actual_intensity": 89.01
       }
     ],
-    "mae_kgco2e_per_t": 11.69,
-    "r2": 0.959,
+    "mae_kgco2e_per_t": 10.53,
+    "r2": 0.956,
     "n_clusters": 9,
-    "improvement_vs_flat_benchmark_pct": 12.9
+    "improvement_vs_flat_benchmark_pct": 7.1
   },
   "feature_importance_pct": {
-    "output_tonnes_per_year": 82.2,
-    "share_grid_electricity": 6.1,
-    "share_natural_gas": 4.7,
-    "sector": 3.5,
-    "share_biomass": 1.2,
-    "process_kind": 0.7,
-    "share_of_energy": 0.6,
-    "share_coal": 0.5,
-    "share_pet_coke": 0.4
+    "output_tonnes_per_year": 78.3,
+    "sector": 9.4,
+    "share_grid_electricity": 4.1,
+    "share_natural_gas": 3.7,
+    "share_coal": 3.7,
+    "share_pet_coke": 0.6,
+    "share_biomass": 0.3,
+    "process_kind": 0.0,
+    "share_of_energy": 0.0
   },
-  "recommended_use": "Trust this model's prediction for factories in clusters already represented in the training data (random_kfold regime, +38.3% MAE vs. flat benchmark). For a factory in a cluster with zero prior training data, fall back to the flat per-sub-sector benchmark instead (leave_one_cluster_out regime shows only +12.9% vs. baseline)."
+  "recommended_use": "Trust this model's prediction for factories in clusters already represented in the training data (random_kfold regime, +30.6% MAE vs. flat benchmark). For a factory in a cluster with zero prior training data, fall back to the flat per-sub-sector benchmark instead (leave_one_cluster_out regime shows only +7.1% vs. baseline)."
 }

@@ -4,142 +4,160 @@
   "random_seed": 42,
   "labels": [
     {
-      "factory_id": "vapi-chemicals-05",
-      "process_id": "boiler",
-      "month": "2025-10",
-      "injected_multiplier": 1.875
-    },
-    {
-      "factory_id": "morbi-ceramics-02",
-      "process_id": "kiln",
+      "factory_id": "ankleshwar-chemicals-08",
+      "process_id": "column",
       "month": "2025-11",
-      "injected_multiplier": 1.703
-    },
-    {
-      "factory_id": "morbi-ceramics-15",
-      "process_id": "glaze",
-      "month": "2025-06",
-      "injected_multiplier": 2.081
-    },
-    {
-      "factory_id": "morbi-ceramics-12",
-      "process_id": "kiln",
-      "month": "2026-02",
-      "injected_multiplier": 2.072
-    },
-    {
-      "factory_id": "morbi-ceramics-12",
-      "process_id": "kiln",
-      "month": "2025-05",
-      "injected_multiplier": 2.072
-    },
-    {
-      "factory_id": "vatva-textiles-01",
-      "process_id": "dyeing",
-      "month": "2026-03",
-      "injected_multiplier": 1.735
+      "injected_multiplier": 2.066
     },
     {
       "factory_id": "vapi-chemicals-13",
-      "process_id": "boiler",
+      "process_id": "column",
       "month": "2026-02",
-      "injected_multiplier": 1.59
+      "injected_multiplier": 1.682
     },
     {
-      "factory_id": "surat-textiles-15",
-      "process_id": "stenter",
-      "month": "2026-03",
-      "injected_multiplier": 1.714
-    },
-    {
-      "factory_id": "alang-engineering-02",
-      "process_id": "furnace",
-      "month": "2026-01",
-      "injected_multiplier": 1.985
-    },
-    {
-      "factory_id": "alang-engineering-04",
+      "factory_id": "vatva-textiles-05",
       "process_id": "etp",
-      "month": "2026-03",
-      "injected_multiplier": 1.742
-    },
-    {
-      "factory_id": "jamnagar-engineering-01",
-      "process_id": "furnace",
       "month": "2025-08",
-      "injected_multiplier": 1.655
+      "injected_multiplier": 1.671
     },
     {
-      "factory_id": "vatva-chemicals-05",
-      "process_id": "column",
+      "factory_id": "vatva-textiles-05",
+      "process_id": "etp",
+      "month": "2025-09",
+      "injected_multiplier": 1.671
+    },
+    {
+      "factory_id": "surat-textiles-08",
+      "process_id": "dyeing",
+      "month": "2025-10",
+      "injected_multiplier": 1.833
+    },
+    {
+      "factory_id": "ankleshwar-chemicals-07",
+      "process_id": "etp",
+      "month": "2026-01",
+      "injected_multiplier": 1.429
+    },
+    {
+      "factory_id": "dahej-chemicals-06",
+      "process_id": "boiler",
       "month": "2025-11",
-      "injected_multiplier": 1.781
+      "injected_multiplier": 1.624
     },
     {
-      "factory_id": "vatva-chemicals-05",
+      "factory_id": "vapi-chemicals-09",
       "process_id": "column",
       "month": "2026-03",
-      "injected_multiplier": 1.781
+      "injected_multiplier": 1.732
     },
     {
-      "factory_id": "rajkot-engineering-12",
+      "factory_id": "rajkot-engineering-10",
+      "process_id": "etp",
+      "month": "2025-05",
+      "injected_multiplier": 1.696
+    },
+    {
+      "factory_id": "jamnagar-chemicals-03",
+      "process_id": "etp",
+      "month": "2025-09",
+      "injected_multiplier": 1.743
+    },
+    {
+      "factory_id": "jamnagar-chemicals-03",
+      "process_id": "etp",
+      "month": "2026-02",
+      "injected_multiplier": 1.743
+    },
+    {
+      "factory_id": "morbi-ceramics-13",
+      "process_id": "glaze",
+      "month": "2025-04",
+      "injected_multiplier": 2.074
+    },
+    {
+      "factory_id": "dahej-chemicals-05",
       "process_id": "compressor",
-      "month": "2026-03",
-      "injected_multiplier": 1.786
+      "month": "2025-08",
+      "injected_multiplier": 1.781
     },
     {
-      "factory_id": "ankleshwar-chemicals-03",
-      "process_id": "column",
+      "factory_id": "vapi-chemicals-07",
+      "process_id": "reactor",
       "month": "2026-03",
-      "injected_multiplier": 1.848
+      "injected_multiplier": 1.981
+    },
+    {
+      "factory_id": "morbi-ceramics-04",
+      "process_id": "kiln",
+      "month": "2025-11",
+      "injected_multiplier": 1.924
+    },
+    {
+      "factory_id": "morbi-ceramics-04",
+      "process_id": "kiln",
+      "month": "2025-10",
+      "injected_multiplier": 1.924
     },
     {
       "factory_id": "morbi-ceramics-03",
-      "process_id": "dryer",
-      "month": "2026-01",
-      "injected_multiplier": 1.681
-    },
-    {
-      "factory_id": "vatva-chemicals-06",
-      "process_id": "column",
-      "month": "2025-08",
-      "injected_multiplier": 1.503
-    },
-    {
-      "factory_id": "rajkot-engineering-13",
-      "process_id": "sand-dryer",
-      "month": "2026-02",
-      "injected_multiplier": 1.685
-    },
-    {
-      "factory_id": "rajkot-engineering-13",
-      "process_id": "sand-dryer",
-      "month": "2025-12",
-      "injected_multiplier": 1.685
-    },
-    {
-      "factory_id": "rajkot-engineering-02",
-      "process_id": "furnace",
-      "month": "2026-01",
-      "injected_multiplier": 1.577
-    },
-    {
-      "factory_id": "morbi-ceramics-09",
-      "process_id": "compressor",
-      "month": "2025-09",
-      "injected_multiplier": 1.852
-    },
-    {
-      "factory_id": "vatva-textiles-02",
       "process_id": "etp",
-      "month": "2026-02",
-      "injected_multiplier": 1.515
+      "month": "2025-11",
+      "injected_multiplier": 1.424
     },
     {
-      "factory_id": "vapi-chemicals-02",
-      "process_id": "column",
+      "factory_id": "ankleshwar-chemicals-06",
+      "process_id": "etp",
+      "month": "2026-03",
+      "injected_multiplier": 1.998
+    },
+    {
+      "factory_id": "morbi-ceramics-16",
+      "process_id": "etp",
+      "month": "2025-10",
+      "injected_multiplier": 1.466
+    },
+    {
+      "factory_id": "vapi-chemicals-06",
+      "process_id": "reactor",
+      "month": "2026-01",
+      "injected_multiplier": 1.947
+    },
+    {
+      "factory_id": "vapi-chemicals-06",
+      "process_id": "reactor",
+      "month": "2026-02",
+      "injected_multiplier": 1.947
+    },
+    {
+      "factory_id": "vatva-textiles-08",
+      "process_id": "compressor",
+      "month": "2025-05",
+      "injected_multiplier": 1.527
+    },
+    {
+      "factory_id": "vatva-textiles-08",
+      "process_id": "compressor",
       "month": "2025-12",
-      "injected_multiplier": 2.043
+      "injected_multiplier": 1.527
+    },
+    {
+      "factory_id": "vatva-chemicals-04",
+      "process_id": "etp",
+      "month": "2025-10",
+      "injected_multiplier": 1.961
+    },
+    {
+      "factory_id": "morbi-ceramics-10",
+      "process_id": "kiln",
+      "month": "2025-08",
+      "injected_multiplier": 1.482
+    },
+    {
+      "factory_id": "morbi-ceramics-10",
+      "process_id": "kiln",
+      "month": "2026-01",
+      "injected_multiplier": 1.482
     }
   ]
 }

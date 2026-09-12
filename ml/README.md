@@ -9,7 +9,7 @@ before anything gets wired into the API — see the root `README.md` roadmap for
 |---|---|
 | Benchmark predictor (LightGBM) | **Built** — `benchmark_model.py` — beats flat benchmark |
 | Anomaly autoencoder (PyTorch) | **Built and evaluated** — `anomaly_model.py` — does **not** beat the existing z-score rule; documented and kept out of production, see `LIMITATIONS.md` |
-| Symbiosis matcher (MiniLM + FAISS) | **Built and live** — `symbiosis_model.py` — 140 real matches served via `/api/symbiosis/network` and wired into the frontend |
+| Symbiosis matcher (MiniLM + FAISS) | **Built and live** — `symbiosis_model.py` — real matches (count regression-tested in `validation/baseline_metrics.json`, moves as the dataset changes) served via `/api/symbiosis/network` and wired into the frontend |
 | Explainer (Ollama + tool-calling) | **Built and live** — `explainer.py` — answers compound "which strategy is best" questions by actually running the optimizer, served via `POST /api/factories/{id}/ask` |
 | `ModelRegistry` | **Built and live** — `registry.py` — served via `GET /api/ml/status` |
 
@@ -90,7 +90,10 @@ python -m ml.symbiosis_model
 Loads real tagged waste streams + accepted inputs from the seeded DB, embeds their
 descriptions with `all-MiniLM-L6-v2`, searches via FAISS, filters by real haversine
 distance between real factory coordinates (≤60 km), and writes results into the
-`symbiosis_matches` table — 140 matches on the current dataset, served live via
+`symbiosis_matches` table — matches on the current dataset (count moves as the waste
+catalog and dataset change; live figure is regression-tested in
+`validation/baseline_metrics.json` via `scripts/validate_all.py`, not this number),
+served live via
 `GET /api/symbiosis/network` and `GET /api/factories/{id}/symbiosis-matches`, and
 wired into the frontend's Symbiosis panel and regulator rollup.
 
