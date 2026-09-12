@@ -84,6 +84,46 @@ success from more threshold-tuning alone.
 Full metrics: `artifacts/anomaly_metrics.json`. Reproduce with `python -m ml.anomaly_model`
 (requires the backend seeded first — see `backend/README.md`).
 
+### Revisit attempt #2: an ensemble instead of a replacement — still does not beat baseline
+
+The prescription above ("multiple years of history per factory") would mean extending
+`data-pipeline/scripts/generate_synthetic.py`'s time series past 12 months — investigated, and
+NOT attempted, because of its blast radius: `output_tonnes_per_year`, every equipment's
+`co2e_tpy`, every benchmark ratio, severity classification, and sized recommendation are
+currently computed by summing/dividing over an assumed-12-month year (see
+`backend/app/db/seed_loader.py`'s `annual_output_t = sum(fac_raw["monthly_output_tonnes"])` and
+`co2e_tpy = sum(v for _, v in monthly_co2e)`). Extending months without re-deriving every one of
+those correctly would silently corrupt numbers the rest of the app depends on — a bigger,
+riskier change than this item's priority (last on the roadmap, explicitly conditional) warranted.
+
+Instead, `ml/anomaly_ensemble.py` tried a genuinely different angle that touches none of that:
+combining the production z-score rule with the autoencoder's reconstruction error as two
+independent signals, rather than one replacing the other. Three combination strategies, evaluated
+against the same real ground truth:
+
+| Variant | Precision | Recall |
+|---|---|---|
+| z-score rule alone (production baseline) | 0.49 | 0.962 |
+| OR (either signal flags) | 0.024 | 1.0 |
+| AND (both must agree) | **0.533** | 0.615 |
+| Weighted sum (matched to baseline's flag count) | 0.196 | 0.385 |
+
+None beats the baseline on **both** precision and recall — OR trades almost all precision for a
+small recall gain (adds the autoencoder's own false positives on top); the weighted sum is worse
+on both counts. **AND is the one genuinely interesting result**: requiring the autoencoder to
+independently corroborate a z-score flag cuts false positives by 46% (26 → 14) and pushes
+precision *above* the production rule (0.533 vs 0.49) — at the real cost of missing more true
+anomalies (recall 0.615 vs 0.962, 10 false negatives vs 1).
+
+**Not adopted as a replacement** (the strict bar — beat baseline on both metrics — isn't met), but
+worth naming as a real, different possible product shape for a future decision: a two-tier
+confidence system (z-score flags a candidate; AND-agreement with the autoencoder promotes it to
+"confirmed," z-score-only stays "suspected") rather than a single detector with one threshold.
+That's a product/UX decision, not something to silently ship as a behaviour change — flagged here,
+not implemented.
+
+Full metrics: `artifacts/anomaly_ensemble_metrics.json`. Reproduce with `python -m ml.anomaly_ensemble`.
+
 ## The explainer's LLM misstates numbers in its own prose — guarded against structurally
 
 Testing `ml/explainer.py` (Phase 3d) against a real compound question ("which strategy is

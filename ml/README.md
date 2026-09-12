@@ -67,6 +67,18 @@ head-to-head against the current baseline) is the reusable artifact, and the doc
 negative result tells the next attempt exactly what's missing (multi-year history per
 factory) rather than inviting another architecture-guessing pass.
 
+**Revisit attempt #2** (`anomaly_ensemble.py`): rather than extending the synthetic
+generator's time series to get that multi-year history (investigated, not attempted —
+see `LIMITATIONS.md` for the real blast-radius reason: it would silently corrupt
+`output_tonnes_per_year`/`co2e_tpy` calculations the rest of the app depends on),
+tried combining the z-score rule and the autoencoder's reconstruction error as two
+independent signals. Still does not beat the production rule on both precision and
+recall — but the AND-agreement variant does beat it on precision alone (0.533 vs 0.49,
+46% fewer false positives) at a real recall cost, suggesting a two-tier confidence
+system as a future product idea rather than a detector swap. Full breakdown in
+`LIMITATIONS.md`; both this and the autoencoder above are sanity-checked on every
+`scripts/validate_all.py` run (flagged, not failed, if a future run's result changes).
+
 ```bash
 cd ..
 python -m ml.anomaly_model

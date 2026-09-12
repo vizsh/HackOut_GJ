@@ -1,0 +1,42 @@
+{
+  "zscore_rule_alone_baseline": {
+    "tp": 25,
+    "fp": 26,
+    "fn": 1,
+    "precision": 0.49,
+    "recall": 0.962
+  },
+  "ensemble_variants": {
+    "or_zscore_or_autoencoder": {
+      "tp": 26,
+      "fp": 1046,
+      "fn": 0,
+      "precision": 0.024,
+      "recall": 1.0
+    },
+    "and_zscore_and_autoencoder": {
+      "tp": 16,
+      "fp": 14,
+      "fn": 10,
+      "precision": 0.533,
+      "recall": 0.615
+    },
+    "weighted_sum_matched_flag_count": {
+      "tp": 10,
+      "fp": 41,
+      "fn": 16,
+      "precision": 0.196,
+      "recall": 0.385
+    }
+  },
+  "best_variant": "and_zscore_and_autoencoder",
+  "best_result": {
+    "tp": 16,
+    "fp": 14,
+    "fn": 10,
+    "precision": 0.533,
+    "recall": 0.615
+  },
+  "verdict": "does_not_beat_baseline",
+  "note": "Ensemble of the production z-score rule (backend/app/intelligence/anomaly.py) and the Phase 3b autoencoder's per-equipment-normalised reconstruction error (ml/anomaly_model.py). Three combination strategies tried: OR (either signal flags), AND (both must agree), and a weighted continuous sum thresholded to match the baseline's own flag count. This does not require more history per series (see this file's module docstring for why that fix was not attempted) \u2014 it only recombines two already-validated signals computed from the same real EmissionRecord data both detectors already read."
+}

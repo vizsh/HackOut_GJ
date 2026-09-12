@@ -25,6 +25,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BASELINE_PATH = REPO_ROOT / "validation" / "baseline_metrics.json"
 
@@ -160,6 +162,48 @@ def stage_anomaly_autoencoder(baseline: dict) -> None:
             f"anomaly autoencoder verdict changed to '{verdict}' (expected "
             f"'{baseline['anomaly_autoencoder']['expected_verdict']}') — NOT a failure, but a human should "
             f"decide whether to promote it to production now; see ml/anomaly_model.py"
+        )
+
+
+def stage_anomaly_ensemble(baseline: dict) -> None:
+    """Revisit attempt #2 (ml/anomaly_ensemble.py, see ml/LIMITATIONS.md):
+    z-score + autoencoder combined, evaluated the same way as the
+    autoencoder-alone sanity check above — flagged, not failed, if a future
+    run's best variant suddenly beats the production rule on both metrics."""
+    from ml import anomaly_ensemble as ens
+    print("\n--- ml: anomaly ensemble (z-score + autoencoder, expected to stay NOT in production) ---")
+    df = ens.load_monthly_series_frame()
+    ground_truth = ens.load_anomaly_ground_truth()
+    z_abs = ens._zscore_matrix(df)
+    from ml.anomaly_model import build_tensors, reconstruction_errors, train
+    series_t, cond_t, means, stds = build_tensors(df)
+    model = train(series_t, cond_t, epochs=200)  # shorter run — sanity check, not a full retrain
+    errors = reconstruction_errors(model, series_t, cond_t)
+    median = np.median(errors, axis=1, keepdims=True)
+    mad = np.median(np.abs(errors - median), axis=1, keepdims=True) * 1.4826 + 1e-9
+    recon_z = (errors - median) / mad
+
+    baseline_flags = np.zeros((len(df), 12), dtype=bool)
+    for i, row in df.reset_index(drop=True).iterrows():
+        series = list(zip(row["months"], row["series"]))
+        for m_idx, p in enumerate(ens.detect_anomalies(series)):
+            baseline_flags[i, m_idx] = p.anomaly
+    baseline_result = ens._score(baseline_flags, df, ground_truth)
+
+    variants = {
+        "or": ens._score(baseline_flags | (recon_z > 3.0), df, ground_truth),
+        "and": ens._score(baseline_flags & (recon_z > 1.0), df, ground_truth),
+    }
+    best_name, best = max(variants.items(), key=lambda kv: kv[1]["precision"] + kv[1]["recall"])
+    beats = best["precision"] >= baseline_result["precision"] and best["recall"] >= baseline_result["recall"]
+    verdict = "beats_baseline" if beats else "does_not_beat_baseline"
+    print(f"verdict: {verdict} (best variant: {best_name} -> {best}; baseline: {baseline_result})")
+    expected = baseline.get("anomaly_ensemble", {}).get("expected_verdict", "does_not_beat_baseline")
+    if verdict != expected:
+        warnings.append(
+            f"anomaly ensemble verdict changed to '{verdict}' (expected '{expected}') — NOT a "
+            f"failure, but a human should decide whether this changes the anomaly-detection "
+            f"product shape; see ml/anomaly_ensemble.py and ml/LIMITATIONS.md"
         )
 
 
@@ -416,6 +460,7 @@ def main() -> int:
         symbiosis_result = stage_symbiosis(baseline)
     if not args.skip_autoencoder:
         stage_anomaly_autoencoder(baseline)
+        stage_anomaly_ensemble(baseline)
     stage_smoke_test()
 
     if args.update_baseline:

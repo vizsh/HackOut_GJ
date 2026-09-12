@@ -30,6 +30,11 @@
     "expected_verdict": "does_not_beat_baseline",
     "note": "This is a sanity check, not a quality bar: if a future retrain suddenly reports 'beats_baseline', that's worth a deliberate human decision to promote it to production \u2014 not something that should happen silently via an automated pipeline. Flagged, not failed."
   },
+  "anomaly_ensemble": {
+    "description": "ml/anomaly_ensemble.py \u2014 z-score + autoencoder combined (OR/AND/weighted-sum variants), the Phase-4 revisit attempt. Built, evaluated, intentionally NOT in production.",
+    "expected_verdict": "does_not_beat_baseline",
+    "note": "Same sanity-check discipline as anomaly_autoencoder above. The AND variant does beat the production rule on precision alone (0.533 vs 0.49) but not recall (0.615 vs 0.962) \u2014 see ml/LIMITATIONS.md for the full breakdown and the two-tier-confidence idea this suggests for future work. Flagged, not failed, if a future run's best variant beats both metrics at once."
+  },
   "data_pipeline": {
     "expected_factory_count": 120,
     "expected_cluster_count": 9
