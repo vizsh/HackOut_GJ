@@ -67,7 +67,7 @@ curl http://127.0.0.1:8811/api/factories/morbi-ceramics-01/benchmark
 | `GET /api/factories/{id}` | totals + all equipment |
 | `GET /api/factories/{id}/equipment` | |
 | `GET /api/factories/{id}/emissions` | every record shows the formula's inputs (factor, source) |
-| `GET /api/factories/{id}/benchmark` | global/India levels honestly reported `available: false` — no sourced dataset exists for them, not fabricated. Also includes an `ml_predicted` level (`ml/benchmark_model.py`) alongside the sourced flat benchmark |
+| `GET /api/factories/{id}/benchmark` | global/India levels honestly reported `available: false` — no sourced dataset exists for them, not fabricated. Also includes an `ml_predicted` level (`ml/benchmark_model.py`) and a `capacity_band` level (real small/medium/large-scale adjustment, sourced for Ceramics only — see `data-pipeline/clean/capacity_band_multipliers.csv`) alongside the sourced flat benchmark |
 | `GET /api/factories/{id}/anomalies` | |
 | `GET /api/factories/{id}/diagnosis/{anomaly_id}` | evidence chain from the real rule engine; `explanation_source: "deterministic_fallback"` until Phase 3's LLM lands |
 | `GET /api/factories/{id}/recommendations` | sized per-equipment, not a flat catalog lookup |

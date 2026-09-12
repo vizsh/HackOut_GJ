@@ -207,3 +207,40 @@ benchmark model's improvement moved from 38.3%/12.9% to 30.6%/7.1% (both still a
 floors) — a real, understood consequence of Ceramics and Textiles now having genuinely *tighter*
 sourced month-to-month variance than the old blanket assumption, not a regression. New baseline
 recorded via `scripts/validate_all.py --update-baseline`.
+
+## 11. Capacity-band (small/medium/large scale) benchmarks — real, but Ceramics-only
+
+`GET /api/factories/{id}/benchmark` now includes a `capacity_band` level (see
+`routers/factories.py`'s `_capacity_band()`), a real, sourced adjustment for how much a factory's
+expected intensity should shift given its scale relative to other units in its sector — computed
+from the same BEE/SAMEEEKSHA Morbi Ceramic Cluster manual used in #10, specifically Table 3
+("Production, Small/Medium/Large scale, boxes or pieces/day") cross-referenced against a
+kWh/day-by-scale table for Wall Tiles, Floor Tiles, and Sanitary Wares (Vitrified Tiles excluded
+— its production-by-band row was ambiguous in the source extraction and not trusted). Per-product
+kWh-per-unit-output was computed per band, normalised to that product's own 3-band mean, then
+averaged across the three trusted product types: small=0.946, medium=1.061, large=0.993 (see
+`data-pipeline/clean/capacity_band_multipliers.csv`).
+
+**A real finding, not smoothed over**: this sourced data does NOT show the clean "smaller units
+run worse, larger units run better" pattern that `generate_synthetic.py`'s `scale_effect` (#9)
+already assumes — medium-scale units are actually the *least* efficient of the three bands in
+this real table, and small/large are close to par. This is disclosed as a genuine tension between
+two real-but-different signals (the general economies-of-scale literature #9's `scale_effect`
+draws on vs. this specific cluster's real capacity-band data), not silently reconciled by picking
+one number over the other.
+
+**Coverage gap, honestly reported**: Textiles, Chemicals, and Engineering have no sourced
+capacity-band table in this research pass — the Vapi Chemical Cluster manual's unit-level table
+(used in #10) reports raw annual energy by product category, not by an explicit small/medium/large
+scale tier, so there was nothing to extract for Chemicals; Surat Textile and Rajkot/Jamnagar/Alang
+Engineering cluster manuals were not re-checked specifically for a capacity-band breakdown in this
+pass. `GET .../benchmark`'s `capacity_band` level reports `available: false` with a clear reason
+for every sector other than Ceramics, rather than reusing Ceramics' multipliers or inventing a
+value — the same discipline as the "global"/"india" benchmark levels that have always been
+honestly unavailable.
+
+**Band assignment is empirical, not hardcoded**: a factory's own band (small/medium/large) is
+computed at read time as the tercile of its `output_tonnes_per_year` among other factories of the
+same sector currently in the database (`_capacity_band()` in `routers/factories.py`) — not a
+duplicate copy of `generate_synthetic.py`'s output ranges. This means it works identically for a
+real onboarded factory ranked against the seeded cohort, not only for synthetic ones.

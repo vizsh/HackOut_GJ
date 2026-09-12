@@ -97,6 +97,25 @@ def waste_ratios() -> dict[str, dict]:
 
 
 @lru_cache
+def capacity_band_multipliers() -> dict[str, dict[str, dict]]:
+    """Real, sourced capacity-band benchmark adjustment — see
+    data-pipeline/clean/capacity_band_multipliers.csv for the full citation
+    and arithmetic. Only sectors with a genuinely sourced band table are
+    present here; routers/factories.py reports every other sector's
+    capacity_band benchmark level as honestly unavailable, never a guessed
+    multiplier."""
+    out: dict[str, dict[str, dict]] = {}
+    with open(DATA_PIPELINE_CLEAN / "capacity_band_multipliers.csv", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            out.setdefault(row["sector"], {})[row["capacity_band"]] = {
+                "multiplier": float(row["multiplier"]),
+                "source": row["source"],
+                "confidence": row["confidence"],
+            }
+    return out
+
+
+@lru_cache
 def intervention_library() -> list[dict]:
     with open(BACKEND_DATA / "interventions.json", encoding="utf-8") as f:
         return json.load(f)

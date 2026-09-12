@@ -292,6 +292,28 @@ def stage_smoke_test() -> None:
     else:
         print(f"  OK  GET .../cross-process-insights -> 200, {len(cpi.json())} insight(s)")
 
+    # Capacity-band benchmark level — real, sourced for Ceramics only
+    ceramics_fid = next((f["id"] for f in factories if f["sector"] == "Ceramics"), None)
+    if ceramics_fid:
+        bm = client.get(f"/api/factories/{ceramics_fid}/benchmark")
+        levels = bm.json()[0]["levels"] if bm.status_code == 200 and bm.json() else []
+        cb = next((l for l in levels if l["level"] == "capacity_band"), None)
+        if cb is None or not cb["available"]:
+            failures.append(f"GET .../benchmark: capacity_band level missing/unavailable for a Ceramics "
+                             f"factory ({ceramics_fid}) — expected available=True (sourced sector)")
+        else:
+            print(f"  OK  GET .../benchmark capacity_band level -> available, {cb['note']}")
+    chem_fid = next((f["id"] for f in factories if f["sector"] == "Chemicals"), None)
+    if chem_fid:
+        bm = client.get(f"/api/factories/{chem_fid}/benchmark")
+        levels = bm.json()[0]["levels"] if bm.status_code == 200 and bm.json() else []
+        cb = next((l for l in levels if l["level"] == "capacity_band"), None)
+        if cb is None or cb["available"]:
+            failures.append(f"GET .../benchmark: capacity_band level for a Chemicals factory ({chem_fid}) "
+                             f"should be honestly unavailable (not sourced) but reported available=True")
+        else:
+            print("  OK  GET .../benchmark capacity_band level -> honestly unavailable for Chemicals (not sourced)")
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()

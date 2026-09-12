@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import carbon_credit, schemas
+from .. import seed as seed_data
 from ..db import models as db
 from ..deps import get_db
 
@@ -88,6 +89,32 @@ def _worker_exposure_flags(factory: db.Factory) -> list[str]:
                 f"not a measured reading — see occupational studies cited in the leak-point research doc)."
             )
     return flags
+
+
+def _capacity_band(session: Session, factory: db.Factory) -> str | None:
+    """small/medium/large tercile of factory.output_tonnes_per_year among
+    other factories in the SAME sector currently in the database — computed
+    empirically at read time rather than duplicating the synthetic
+    generator's hardcoded output ranges here, so this works identically for
+    a real onboarded factory compared against the seeded cohort. Returns
+    None if output_tonnes_per_year is missing or the sector has too few
+    factories to rank."""
+    if not factory.output_tonnes_per_year:
+        return None
+    outputs = session.scalars(
+        select(db.Factory.output_tonnes_per_year)
+        .where(db.Factory.sector == factory.sector, db.Factory.output_tonnes_per_year.is_not(None))
+        .order_by(db.Factory.output_tonnes_per_year)
+    ).all()
+    if len(outputs) < 3:
+        return None
+    rank = sum(1 for o in outputs if o <= factory.output_tonnes_per_year) - 1
+    percentile = rank / (len(outputs) - 1)
+    if percentile < 1 / 3:
+        return "small"
+    if percentile < 2 / 3:
+        return "medium"
+    return "large"
 
 
 def _to_full_out(session: Session, factory: db.Factory) -> schemas.FactoryFullOut:
@@ -242,8 +269,16 @@ def get_benchmark(factory_id: str, session: Session = Depends(get_db)):
     (+6.3%) — see ml/LIMITATIONS.md #9 for the full validation. If the model
     artifact isn't available (e.g. `python -m ml.benchmark_model` was never
     run), this level is honestly reported unavailable, not skipped silently.
+
+    Also includes a "capacity_band" level — a real, sourced adjustment for
+    small/medium/large-scale units within a sector (see
+    data-pipeline/clean/capacity_band_multipliers.csv), currently sourced
+    only for Ceramics (BEE/SAMEEEKSHA Morbi cluster manual). Honestly
+    unavailable for every other sector rather than a guessed multiplier.
     """
     factory = _get_factory_or_404(session, factory_id)
+    band = _capacity_band(session, factory)
+    band_data = seed_data.capacity_band_multipliers().get(factory.sector, {})
     out = []
     for e in factory.equipment:
         deviation = None
@@ -270,6 +305,26 @@ def get_benchmark(factory_id: str, session: Session = Depends(get_db)):
             except Exception:
                 pass  # model artifact missing/unreadable — ml_level keeps its unavailable default above
 
+        capacity_band_level = schemas.BenchmarkLevelOut(
+            level="capacity_band", available=False,
+            note=(
+                f"No sourced capacity-band benchmark exists for sector '{factory.sector}' yet — "
+                "only Ceramics is sourced in this build (BEE/SAMEEEKSHA Morbi cluster manual)."
+                if not band_data else
+                "Could not determine this factory's capacity band (output_tonnes_per_year missing, "
+                "or too few factories of this sector in the cohort to rank)."
+            ),
+        )
+        if band and band_data.get(band) and e.benchmark_kgco2e_per_t:
+            row = band_data[band]
+            capacity_band_level = schemas.BenchmarkLevelOut(
+                level="capacity_band", available=True,
+                value_kgco2e_per_t=round(e.benchmark_kgco2e_per_t * row["multiplier"], 1),
+                source=row["source"], confidence=row["confidence"],
+                note=f"{band}-scale {factory.sector.lower()} unit (empirical tercile of this cohort's "
+                     f"output_tonnes_per_year) — multiplier {row['multiplier']}.",
+            )
+
         out.append(schemas.BenchmarkOut(
             equipment_id=e.id, process_label=e.label,
             actual_intensity_kgco2e_per_t=e.actual_intensity, deviation_pct=deviation, severity=e.severity,
@@ -282,6 +337,7 @@ def get_benchmark(factory_id: str, session: Session = Depends(get_db)):
                                           value_kgco2e_per_t=e.benchmark_kgco2e_per_t,
                                           source=e.benchmark_source, confidence=e.benchmark_confidence),
                 ml_level,
+                capacity_band_level,
                 schemas.BenchmarkLevelOut(level="factory", available=True,
                                           value_kgco2e_per_t=e.actual_intensity,
                                           source="computed: app/engine/intensity.intensity_kg_per_t", confidence="high"),
