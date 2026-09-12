@@ -62,6 +62,93 @@ body,
   border-top-color: #232b3d;
 }
 
+/* Regulator cluster map: always-visible cluster name labels (independent of
+   hover) so overlapping bubbles at the zoomed-out view stay identifiable,
+   plus a pointer cursor on the clickable cluster bubbles and a themed zoom control. */
+.cluster-name-label { background: transparent; border: 0; pointer-events: none; }
+.cluster-name-label span {
+  display: block;
+  transform: translate(-50%, 6px);
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 600;
+  color: #e6ebf5;
+  text-shadow: 0 1px 3px #000, 0 0 6px #000;
+  letter-spacing: 0.02em;
+}
+.cluster-map .leaflet-interactive { cursor: pointer; }
+.cluster-map .leaflet-control-zoom {
+  border: 1px solid #232b3d !important;
+  background: #10151f !important;
+}
+.cluster-map .leaflet-control-zoom a {
+  background: #10151f !important;
+  color: #e6ebf5 !important;
+  border-color: #232b3d !important;
+}
+.cluster-map .leaflet-control-zoom a:hover {
+  background: #182233 !important;
+}
+
+/* JARVIS chat — markdown rendering for the explainer's answers so a ranked
+   list of factories or a comparison table actually reads as one, instead of
+   an unformatted wall of text. Scoped to the chat bubble only. */
+.jarvis-markdown { font-size: 12px; line-height: 1.55; }
+.jarvis-markdown > *:first-child { margin-top: 0; }
+.jarvis-markdown > *:last-child { margin-bottom: 0; }
+.jarvis-markdown p { margin: 0.4em 0; }
+.jarvis-markdown strong { color: #eaf3ff; font-weight: 700; }
+.jarvis-markdown ul, .jarvis-markdown ol { margin: 0.4em 0; padding-left: 1.15em; }
+.jarvis-markdown ul { list-style: disc; }
+.jarvis-markdown ol { list-style: decimal; }
+.jarvis-markdown li { margin: 0.15em 0; }
+.jarvis-markdown li > p { margin: 0; }
+.jarvis-markdown h1, .jarvis-markdown h2, .jarvis-markdown h3 {
+  margin: 0.6em 0 0.3em;
+  font-weight: 700;
+  color: #eaf3ff;
+}
+.jarvis-markdown h1 { font-size: 13.5px; }
+.jarvis-markdown h2 { font-size: 13px; }
+.jarvis-markdown h3 { font-size: 12.5px; }
+.jarvis-markdown code {
+  background: rgba(62, 166, 255, 0.12);
+  border: 1px solid rgba(62, 166, 255, 0.25);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  font-size: 11px;
+}
+.jarvis-markdown hr { border: none; border-top: 1px solid #232b3d; margin: 0.5em 0; }
+.jarvis-markdown blockquote {
+  margin: 0.4em 0;
+  padding-left: 0.6em;
+  border-left: 2px solid #3ea6ff80;
+  color: #92caff;
+}
+.jarvis-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+}
+.jarvis-markdown table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 0.5em 0;
+}
+.jarvis-markdown th, .jarvis-markdown td {
+  border: 1px solid #232b3d;
+  padding: 4px 6px;
+  text-align: left;
+}
+.jarvis-markdown th {
+  background: #10151f;
+  color: #92caff;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.jarvis-markdown tr:nth-child(even) td { background: rgba(255, 255, 255, 0.02); }
+
 /* Selected-cluster factories are deliberately drawn as tiny built environments,
    not as pins: each rises from the map with a staggered construction sequence. */
 .factory-marker-wrap { background: transparent; border: 0; }

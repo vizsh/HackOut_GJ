@@ -383,7 +383,20 @@ SYSTEM_PROMPT = (
     "words, state the plain rupee number back exactly as given (e.g. "
     "'Rs 133000') — do NOT convert it to lakhs or crores yourself, you have "
     "made unit conversion errors doing this before. "
-    "Keep answers concise and cite the specific numbers you computed."
+    "Keep answers concise and cite the specific numbers you computed.\n\n"
+    "FORMAT every answer as Markdown — it is rendered, not shown as raw text:\n"
+    "- When comparing 2+ factories/equipment/interventions with the same "
+    "fields (e.g. rank_factories, get_recommendations results), use a "
+    "Markdown table with a header row — never a paragraph of comma-separated "
+    "numbers.\n"
+    "- Bold (**...**) the single number that answers the question "
+    "(e.g. **1,234 tCO2e/yr**, **Rs 45,000**, **14 months**).\n"
+    "- Use a short bullet list for anything with more than two discrete "
+    "points (root causes, recommendation steps, a ranked list of 3+ items).\n"
+    "- Use a one-line intro sentence, then the table/list — do not repeat "
+    "the same numbers again afterward in prose.\n"
+    "- Never use a raw table or list for a single fact — a one-number answer "
+    "stays a plain sentence with the number bolded."
 )
 
 
@@ -398,10 +411,16 @@ def _deterministic_fallback(question: str, factory_id: str | None, session=None)
         order = "desc" if any(w in q for w in ["worst", "problem", "needs", "badly", "most improved"]) else "asc"
         result = tool_rank_factories(metric="avg_deviation_pct", order=order, limit=3, session=session)
         label = "worst-performing" if order == "desc" else "best-performing"
-        lines = [f"{r['name']} ({r['sector']}, {r['cluster_id']}): {r['avg_deviation_pct']:+.1f}% vs benchmark, "
-                 f"{r['hotspot_count']} hotspot(s)" for r in result["ranked"]]
-        return (f"[deterministic fallback — Ollama unavailable] Top {label} factories by average "
-                f"benchmark deviation:\n" + "\n".join(lines))
+        rows = "\n".join(
+            f"| {r['name']} | {r['sector']} | {r['cluster_id']} | {r['avg_deviation_pct']:+.1f}% | {r['hotspot_count']} |"
+            for r in result["ranked"]
+        )
+        return (
+            f"*[deterministic fallback — Ollama unavailable]*\n\n"
+            f"Top {label} factories by average benchmark deviation:\n\n"
+            f"| Factory | Sector | Cluster | Deviation | Hotspots |\n"
+            f"|---|---|---|---|---|\n{rows}"
+        )
 
     if factory_id is None:
         return ("[deterministic fallback — Ollama unavailable] This question needs a specific factory "
@@ -421,24 +440,28 @@ def _deterministic_fallback(question: str, factory_id: str | None, session=None)
 
         result = tool_find_best_strategy(factory_id, budget_inr=budget_inr, session=session)
         if not result["selected_recommendation_ids"]:
-            return ("[deterministic fallback — Ollama unavailable] No recommendation combination "
+            return ("*[deterministic fallback — Ollama unavailable]*\n\nNo recommendation combination "
                     "satisfies the given constraints; the best option is to make no change yet.")
-        budget_note = f" under a budget of Rs.{budget_inr:,.0f}" if budget_inr else ""
+        budget_note = f" under a budget of **Rs {budget_inr:,.0f}**" if budget_inr else ""
         return (
-            f"[deterministic fallback — Ollama unavailable] Best strategy{budget_note}, checked "
-            f"exhaustively across {result['n_combinations_evaluated']} combinations: apply "
-            f"{len(result['selected_recommendation_ids'])} intervention(s) "
-            f"({', '.join(result['selected_recommendation_ids'])}) for a reduction of "
-            f"{result['co2_reduction_tpy']} tCO2e/yr, CAPEX Rs.{result['capex_inr']:,.0f}, "
-            f"payback {result['blended_payback_months']} months. Confidence: {result['confidence']}."
+            f"*[deterministic fallback — Ollama unavailable]*\n\n"
+            f"Best strategy{budget_note}, checked exhaustively across "
+            f"**{result['n_combinations_evaluated']} combinations**:\n\n"
+            f"- Apply **{len(result['selected_recommendation_ids'])} intervention(s)**: "
+            f"{', '.join(result['selected_recommendation_ids'])}\n"
+            f"- CO2e reduction: **{result['co2_reduction_tpy']} t/yr**\n"
+            f"- CAPEX: **Rs {result['capex_inr']:,.0f}**\n"
+            f"- Payback: **{result['blended_payback_months']} months**\n"
+            f"- Confidence: {result['confidence']}"
         )
 
     summary = tool_get_factory_summary(factory_id, session=session)
     return (
-        f"[deterministic fallback — Ollama unavailable] {summary.get('name', factory_id)} "
-        f"({summary.get('sector', '?')}): {summary.get('total_co2e_tpy', 0):.0f} tCO2e/yr across "
+        f"*[deterministic fallback — Ollama unavailable]*\n\n"
+        f"**{summary.get('name', factory_id)}** ({summary.get('sector', '?')}): "
+        f"**{summary.get('total_co2e_tpy', 0):.0f} tCO2e/yr** across "
         f"{len(summary.get('equipment', []))} processes. For a specific diagnosis, use "
-        f"GET /api/factories/{{id}}/diagnosis/{{anomaly_id}}."
+        f"`GET /api/factories/{{id}}/diagnosis/{{anomaly_id}}`."
     )
 
 

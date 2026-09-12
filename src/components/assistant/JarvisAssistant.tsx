@@ -1,4 +1,6 @@
 import { useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useFactoryStore } from "../../store/useFactoryStore";
 import { useChatStore } from "../../store/useChatStore";
 import { useTranslation } from "../../store/useLanguageStore";
@@ -14,6 +16,18 @@ import { api } from "../../lib/api";
 
 type Recognition = { continuous: boolean; interimResults: boolean; lang: string; start: () => void; stop: () => void; onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onend: (() => void) | null; onerror: (() => void) | null };
 type RecognitionCtor = new () => Recognition;
+
+// Renders the explainer's markdown (tables for factory comparisons, bold
+// numbers, bullet lists) instead of a wall of unformatted text — every
+// number in it still traces to a real tool call (ml/explainer.py), this
+// only changes how it's displayed. User messages stay plain text.
+function AssistantMarkdown({ text }: { text: string }) {
+  return (
+    <div className="jarvis-markdown">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+    </div>
+  );
+}
 
 const SAMPLE_PROMPTS = [
   "Which factory is performing the best?",
@@ -105,7 +119,7 @@ export default function JarvisAssistant() {
   return (
     <div className="fixed bottom-4 right-4 z-[1000]">
       {open && (
-        <section className="jarvis-panel mb-3 flex h-[520px] w-[380px] flex-col overflow-hidden rounded-2xl border border-[#3ea6ff]/45 bg-[#0d1420]/95 shadow-2xl backdrop-blur-xl">
+        <section className="jarvis-panel mb-3 flex h-[560px] w-[440px] max-w-[92vw] flex-col overflow-hidden rounded-2xl border border-[#3ea6ff]/45 bg-[#0d1420]/95 shadow-2xl backdrop-blur-xl">
           <div className="flex items-center justify-between border-b border-[color:var(--color-border)] bg-[#3ea6ff]/10 px-4 py-3">
             <div className="flex items-center gap-2">
               <span className="jarvis-orb" />
@@ -127,7 +141,11 @@ export default function JarvisAssistant() {
               return (
                 <div key={i} className={`max-w-[92%] rounded-xl px-3 py-2 text-[12px] leading-relaxed ${m.role === "assistant" ? "bg-[#172335] text-[color:var(--color-text)]" : "ml-auto bg-[#3ea6ff] text-[#07101c]"}`}>
                   <div>
-                    {m.text || (isLive ? "Calling the database…" : "")}
+                    {m.role === "assistant" && m.text ? (
+                      <AssistantMarkdown text={m.text} />
+                    ) : (
+                      m.text || (isLive ? "Calling the database…" : "")
+                    )}
                     {isLive && m.text && <span className="jarvis-cursor" />}
                   </div>
                   {m.verifiedData != null && (

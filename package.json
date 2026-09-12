@@ -21,8 +21,10 @@
     "react-dom": "^19.2.8",
     "react-is": "^19.3.0",
     "react-leaflet": "^5.0.0",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.3",
     "recharts": "^3.10.1",
+    "remark-gfm": "^4.0.1",
     "three": "^0.186.0",
     "zustand": "^5.0.15"
   },

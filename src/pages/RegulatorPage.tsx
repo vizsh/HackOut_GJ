@@ -41,7 +41,7 @@ export default function RegulatorPage() {
   };
 
   return (
-    <main className="flex flex-1 flex-col gap-3 overflow-hidden p-4">
+    <main className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold">Regulator rollup — Gujarat industrial clusters</h2>
@@ -54,7 +54,7 @@ export default function RegulatorPage() {
         </span>
       </div>
 
-      <ScaleImpactPanel />
+      <ScaleImpactPanel defaultCollapsed />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <Kpi label="Units in cohort" value={String(state.factories)} sub={`${state.clusters.length} clusters`} />
@@ -65,7 +65,7 @@ export default function RegulatorPage() {
         <Kpi label="Symbiosis matches" value={String(state.symbiosisMatches)} sub={`${state.uptakePct}% intervention uptake`} />
       </div>
 
-      <div className="grid flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[1fr_400px]">
+      <div className="grid h-[640px] grid-cols-1 gap-3 lg:grid-cols-[1fr_400px]">
         <div className="glass relative overflow-hidden rounded-xl">
           <ClusterMap state={state} selectedId={selectedId} onSelect={selectCluster} factories={factories} selectedFactoryId={selectedFactoryId} onFactorySelect={setSelectedFactoryId} />
           {sel && (
