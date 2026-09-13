@@ -227,6 +227,7 @@ def _seed_factories(session: Session) -> dict:
                     payback_months=iv.paybackMonths, confidence=iv.confidence,
                     description=iv.description, circularity_gain_pct=iv.circularityGainPct,
                     rank=len([r for r in session.new if isinstance(r, db.Recommendation) and r.equipment_id == equip.id]),
+                    applied=False,
                 ))
                 stats["recommendations"] += 1
 

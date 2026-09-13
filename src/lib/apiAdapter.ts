@@ -49,6 +49,7 @@ function adaptRecommendation(r: ApiRecommendation): Intervention {
     confidence: r.confidence,
     description: r.description,
     circularityGainPct: r.circularity_gain_pct ?? undefined,
+    applied: r.applied,
   };
 }
 
@@ -87,9 +88,11 @@ export function adaptFactory(f: ApiFactory, clusterNameById: Record<string, stri
     totalCo2eTpy: f.total_co2e_tpy,
     totalEnergyMwhPerYear: f.total_energy_mwh_per_year,
     totalWasteTpy: f.total_waste_tpy,
-    // Backend has no recovered-material/symbiosis-uptake ledger yet (Phase 3,
-    // not built) — 0 is the honest value, not a placeholder guess. See
-    // backend/app/routers/factories.py _to_full_out().
+    // Sum of circularity_gain_pct across every recommendation the user has
+    // marked applied (POST/PATCH .../recommendations/{id}), clamped at 0.95 —
+    // see backend/app/routers/factories.py _to_full_out(). 0 until at least
+    // one circular intervention (recycling-loop/waste-to-input/material-
+    // substitution category) has actually been applied for this factory.
     circularityRatio: f.circularity_ratio,
     avoidableCo2eTpy: f.avoidable_co2e_tpy,
     carbonCreditValueInrPerYear: f.carbon_credit_value_inr_per_year,
@@ -104,7 +107,7 @@ export function adaptFactory(f: ApiFactory, clusterNameById: Record<string, stri
     // rather than carried over from the old static mock data.
     wasteStreams: [],
     acceptedInputs: [],
-    implementedInterventionIds: [],
+    implementedInterventionIds: f.applied_recommendation_ids ?? [],
     consentToShare: f.consent_to_share,
   };
 }

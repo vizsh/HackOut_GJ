@@ -147,11 +147,16 @@ def _to_full_out(session: Session, factory: db.Factory) -> schemas.FactoryFullOu
         .where(db.WasteRecord.factory_id == factory.id)
     ) or 0.0
 
-    # No recovered-material tracking exists in this dataset yet (Phase 1/2 built
-    # emissions, not a symbiosis/recovery ledger) — 0.0 is the honest value for
-    # every factory until Phase 3's symbiosis matcher and an "implemented
-    # interventions" ledger exist, not a placeholder guess like the old mock data.
-    circularity_ratio = 0.0
+    # Real, if simple, logic — not a placeholder: circularity_ratio is the sum
+    # of circularity_gain_pct across every recommendation the user has actually
+    # marked applied (POST .../recommendations/{id}/apply), clamped at 0.95 the
+    # same way the frontend's what-if simulator (src/lib/simulator.ts) computes
+    # an ephemeral version of this same number when toggling a scenario — this
+    # is that computation made real and persisted, using each intervention's
+    # own catalog-sourced circularity_gain_pct (backend/data/interventions.json),
+    # not a measured recovered/waste tonnage ratio (no such ledger exists yet).
+    applied_recs = [r for e in factory.equipment for r in e.recommendations if r.applied]
+    circularity_ratio = round(min(0.95, sum(r.circularity_gain_pct or 0.0 for r in applied_recs)), 2)
 
     # Best single recommendation per equipment (not every recommendation
     # summed — avoids double-counting overlapping fixes on one process,
@@ -172,6 +177,7 @@ def _to_full_out(session: Session, factory: db.Factory) -> schemas.FactoryFullOu
         carbon_credit_is_placeholder=True, carbon_credit_note=carbon_credit.SOURCE_NOTE,
         equipment=equipment, anomaly_check_status=_anomaly_check_status(session, factory),
         worker_exposure_flags=_worker_exposure_flags(factory),
+        applied_recommendation_ids=[r.id for r in applied_recs],
     )
 
 
@@ -383,6 +389,25 @@ def get_recommendations(factory_id: str, session: Session = Depends(get_db)):
         .where(db.Recommendation.equipment_id.in_(equipment_ids))
         .order_by(db.Recommendation.rank)
     ).all()
+
+
+@router.patch("/{factory_id}/recommendations/{recommendation_id}", response_model=schemas.FactoryFullOut)
+def set_recommendation_applied(factory_id: str, recommendation_id: str, payload: schemas.RecommendationApplyIn, session: Session = Depends(get_db)):
+    """Marks one recommendation as actually implemented (or reverts that) —
+    the one real, persisted 'did this happen' flag in the app. Returns the
+    whole factory back (not just the one row) since circularity_ratio and
+    applied_recommendation_ids on FactoryFullOut both depend on the full set
+    of applied recommendations, and the frontend replaces its cached factory
+    with this response in one round trip (see refreshFactoryFromApi)."""
+    factory = _get_factory_or_404(session, factory_id)
+    equipment_ids = {e.id for e in factory.equipment}
+    rec = session.get(db.Recommendation, recommendation_id)
+    if rec is None or rec.equipment_id not in equipment_ids:
+        raise HTTPException(404, f"recommendation '{recommendation_id}' not found on factory '{factory_id}'")
+    rec.applied = payload.applied
+    session.commit()
+    session.refresh(factory)
+    return _to_full_out(session, factory)
 
 
 @router.get("/{factory_id}/symbiosis-matches", response_model=list[schemas.SymbiosisMatchOut])

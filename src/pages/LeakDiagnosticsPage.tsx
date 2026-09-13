@@ -193,9 +193,15 @@ export default function LeakDiagnosticsPage() {
           <CsvImportRow
             label="Monthly activity"
             templateUrl={api.activityCsvTemplateUrl()}
-            disabled={!factory.id}
+            disabled={!factory.id || factory.dataSource !== "self-reported"}
             onUpload={async (file) => { await api.importActivityCsv(factory.id, file); reload(); }}
           />
+          {factory.id && factory.dataSource !== "self-reported" && (
+            <p className="text-[10.5px] text-[color:var(--color-muted)]">
+              Monthly activity can only be appended to a self-reported (onboarded) factory — {factory.name} is a
+              seeded demo factory with fixed ground-truth data. <a href="#/intake" className="text-[color:var(--color-accent)] hover:underline">Onboard a new factory</a> to try this.
+            </p>
+          )}
           <CsvImportRow
             label="Leak assessments"
             templateUrl={api.leakAssessmentsCsvTemplateUrl()}

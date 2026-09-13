@@ -6,6 +6,13 @@ import { buildActionPlan, planToMarkdown, type PlanItem, type PhaseSummary } fro
 import { formatInr, severityColor, confidenceLabel } from "../lib/severity";
 import { api, type ApiVendorContact } from "../lib/api";
 
+// "Apply" persists Recommendation.applied on the backend (see
+// backend/app/routers/factories.py set_recommendation_applied) — distinct
+// from picking a scenario in the Simulate page, which is an ephemeral
+// what-if that never writes anything. Applying a circularity-tagged
+// intervention (recycling-loop / waste-to-input / material-substitution)
+// is what actually moves the factory's circularity_ratio off 0.
+
 const phaseAccent: Record<PhaseSummary["phase"], string> = { "30": "#22c55e", "90": "#3ea6ff", "365": "#a78bfa" };
 
 function VendorFinder({ category }: { category: string }) {
@@ -41,8 +48,26 @@ function VendorFinder({ category }: { category: string }) {
   );
 }
 
-function ItemCard({ item, accent }: { item: PlanItem; accent: string }) {
+function ItemCard({ item, accent, factoryId, onApplied }: {
+  item: PlanItem; accent: string; factoryId: string; onApplied: () => void;
+}) {
   const iv = item.intervention;
+  const [busy, setBusy] = useState(false);
+  const isCircular = iv.circularityGainPct != null && iv.circularityGainPct > 0;
+
+  const toggleApplied = async () => {
+    if (!factoryId || busy) return;
+    setBusy(true);
+    try {
+      await api.applyRecommendation(factoryId, iv.id, !iv.applied);
+      onApplied();
+    } catch {
+      /* surfaced implicitly — the button just stays in its current state */
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <motion.div
       layout
@@ -61,6 +86,18 @@ function ItemCard({ item, accent }: { item: PlanItem; accent: string }) {
             {item.process.label} · {iv.category.replace(/-/g, " ")}
           </div>
         </div>
+        <button
+          onClick={toggleApplied}
+          disabled={busy}
+          title={isCircular ? `Applying this raises circularity ratio by ${Math.round((iv.circularityGainPct ?? 0) * 100)}pp` : "Mark this intervention as actually implemented"}
+          className={`shrink-0 rounded-md border px-2 py-1 text-[10px] font-medium disabled:opacity-50 ${
+            iv.applied
+              ? "border-[color:var(--color-ok)] bg-[color:var(--color-ok)]/15 text-[color:var(--color-ok)]"
+              : "border-[color:var(--color-border)] text-[color:var(--color-muted)] hover:bg-[color:var(--color-panel)]"
+          }`}
+        >
+          {busy ? "…" : iv.applied ? "Applied ✓" : "Mark applied"}
+        </button>
       </div>
 
       <div className="mt-2.5 grid grid-cols-4 gap-1.5 text-center">
@@ -99,8 +136,10 @@ function ItemCard({ item, accent }: { item: PlanItem; accent: string }) {
 export default function ActionPlanPage() {
   const baseline = useFactoryStore((s) => s.baseline);
   const selected = useFactoryStore((s) => s.selectedInterventionIds);
+  const refreshFactoryFromApi = useFactoryStore((s) => s.refreshFactoryFromApi);
   const plan = useMemo(() => buildActionPlan(baseline, selected), [baseline, selected]);
   const [copied, setCopied] = useState(false);
+  const onApplied = () => { if (baseline.id) refreshFactoryFromApi(baseline.id); };
 
   const copyMarkdown = async () => {
     try {
@@ -197,7 +236,7 @@ export default function ActionPlanPage() {
                   Nothing phased here for this scenario.
                 </div>
               ) : (
-                p.items.map((it) => <ItemCard key={it.intervention.id} item={it} accent={phaseAccent[p.phase]} />)
+                p.items.map((it) => <ItemCard key={it.intervention.id} item={it} accent={phaseAccent[p.phase]} factoryId={baseline.id} onApplied={onApplied} />)
               )}
             </div>
           </div>

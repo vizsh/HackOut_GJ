@@ -14,6 +14,8 @@ export interface Intervention {
   description: string;
   /** optional lift to the site circularity ratio (0-1) for recycling/waste-to-input measures */
   circularityGainPct?: number;
+  /** whether the user has persisted this as actually implemented (backend recommendations.applied) */
+  applied?: boolean;
 }
 
 export interface ProcessNode {

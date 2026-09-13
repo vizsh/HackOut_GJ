@@ -285,6 +285,13 @@ class Recommendation(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     circularity_gain_pct: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     rank: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Whether the user has marked this intervention as actually implemented —
+    # the one real, persisted "did this happen" flag in the app (distinct from
+    # the Simulate page's ephemeral what-if toggle, which never writes here).
+    # Drives factories.py's circularity_ratio computation: see that function's
+    # docstring for why summing applied circular interventions' own
+    # circularity_gain_pct is the honest replacement for the old hardcoded 0.0.
+    applied: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
 
     equipment: Mapped["Equipment"] = relationship(back_populates="recommendations")
 

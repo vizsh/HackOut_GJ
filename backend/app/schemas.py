@@ -80,6 +80,7 @@ class FactoryFullOut(FactorySummaryOut):
     equipment: list[EquipmentFullOut]
     anomaly_check_status: str = "available"  # available | partial | not_available — see routers/factories._anomaly_check_status
     worker_exposure_flags: list[str] = []  # keyword-heuristic VOC/solvent exposure risk notes, see routers/factories._worker_exposure_flags
+    applied_recommendation_ids: list[str] = []  # recommendations.applied=True for this factory — drives circularity_ratio, see routers/factories._to_full_out
 
 
 class FactorySummaryLiteOut(BaseModel):
@@ -158,6 +159,11 @@ class RecommendationOut(BaseModel):
     description: str
     circularity_gain_pct: Optional[float]
     rank: int
+    applied: bool = False
+
+
+class RecommendationApplyIn(BaseModel):
+    applied: bool
 
 
 class InterventionOut(BaseModel):

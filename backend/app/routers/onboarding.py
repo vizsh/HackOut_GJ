@@ -122,8 +122,15 @@ def onboard_factory(payload: schemas.OnboardFactoryIn, session: Session = Depend
                 co2_reduction_tpy=iv.co2ReductionTpy, payback_months=iv.paybackMonths,
                 confidence=iv.confidence, description=iv.description,
                 circularity_gain_pct=iv.circularityGainPct, rank=len(all_recommendations),
+                applied=False,
             )
             session.add(rec)
+            # applied=False is passed explicitly above (not left to the column
+            # default) because model_validate below reads this in-memory object
+            # BEFORE session.commit() flushes it — a plain column default is
+            # only guaranteed to populate the Python attribute at flush time, so
+            # without this, rec.applied is still None here and RecommendationOut
+            # (applied: bool) fails pydantic validation with a 500.
             all_recommendations.append(schemas.RecommendationOut.model_validate(rec))
 
     session.commit()

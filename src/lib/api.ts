@@ -100,6 +100,7 @@ export interface ApiRecommendation {
   description: string;
   circularity_gain_pct: number | null;
   rank: number;
+  applied: boolean;
 }
 
 export interface ApiEquipment {
@@ -171,6 +172,7 @@ export interface ApiFactory {
   equipment: ApiEquipment[];
   anomaly_check_status?: string;
   worker_exposure_flags?: string[];
+  applied_recommendation_ids?: string[];
 }
 
 export interface ApiAnomaly {
@@ -393,4 +395,11 @@ export const api = {
   waterBenchmark: (factoryId: string, litresPerKg?: number) =>
     getJson<ApiWaterBenchmark>(`/api/factories/${factoryId}/water-benchmark${litresPerKg != null ? `?litres_per_kg=${litresPerKg}` : ""}`),
   crossProcessInsights: (factoryId: string) => getJson<ApiCrossProcessInsight[]>(`/api/factories/${factoryId}/cross-process-insights`),
+
+  // Marks a recommendation as actually implemented (or reverts that) — the
+  // real, persisted flag behind circularity_ratio (see backend/app/routers/
+  // factories.py _to_full_out). Returns the whole updated factory so the
+  // caller can just replace its cached copy in one round trip.
+  applyRecommendation: (factoryId: string, recommendationId: string, applied: boolean) =>
+    patchJson<ApiFactory>(`/api/factories/${factoryId}/recommendations/${recommendationId}`, { applied }),
 };
