@@ -152,9 +152,36 @@ def tool_simulate_combination(factory_id: str, recommendation_ids: list[str], se
             s.close()
 
 
+def _coerce_float_arg(value: float | int | str | None) -> float | None:
+    """Same problem as the int-limit guard on list_factories/rank_factories,
+    but for optimize()'s budget_inr/max_payback_months: tool-call arguments
+    come from Ollama as loosely-typed JSON, and when the model can't map a
+    question onto a real numeric constraint (observed: a 'which CO2 trade is
+    most profitable' question, which isn't one of this factory-scoped
+    optimizer's parameters) it can pass a non-numeric string, or the literal
+    "None"/"null", instead of omitting the argument. optimize() then does a
+    bare `capex_inr > budget_inr` comparison that raises TypeError on a str,
+    which _execute_tool_call turns into an {"error": ...} result but only
+    after the crash — coercing (or dropping) here avoids ever reaching that
+    comparison with the wrong type."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = value.strip()
+        if not value or value.lower() in ("none", "null"):
+            return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def tool_find_best_strategy(factory_id: str, objective: str = "max_co2_reduction",
-                             budget_inr: float | None = None, max_payback_months: float | None = None,
+                             budget_inr: float | int | str | None = None,
+                             max_payback_months: float | int | str | None = None,
                              session=None) -> dict:
+    budget_inr = _coerce_float_arg(budget_inr)
+    max_payback_months = _coerce_float_arg(max_payback_months)
     s, owned = _own_session_if_needed(session)
     try:
         equipment_list = _load_equipment(s, factory_id)
@@ -377,6 +404,13 @@ SYSTEM_PROMPT = (
     "'optimal', ALWAYS call find_best_strategy rather than picking one "
     "yourself from get_recommendations — that tool exhaustively checks every "
     "combination, which you cannot do reliably by inspection. "
+    "Your tools cover on-site emissions diagnosis and intervention costing "
+    "ONLY — none of them price or rank CO2 Exchange marketplace trades/deals "
+    "between factories. If asked which trade/deal is most profitable, or "
+    "anything about the marketplace's own economics, say plainly that you "
+    "don't have a tool for that (point to the CO2 Exchange page instead) "
+    "rather than forcing the question into find_best_strategy or any other "
+    "tool that doesn't actually answer it. "
     "All rupee amounts are PLAIN NUMBERS OF RUPEES (e.g. 2000000 means twenty "
     "lakh rupees, NOT two lakh) — when the user says '20 lakh' pass "
     "budget_inr=2000000, not 200000. When describing a tool's result in "

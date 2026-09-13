@@ -46,6 +46,7 @@ export default function JarvisAssistant() {
   const [thinking, setThinking] = useState(false);
   const messages = useChatStore((s) => s.messages);
   const setMessages = useChatStore((s) => s.setMessages);
+  const clearMessages = useChatStore((s) => s.clearMessages);
   const recognition = useRef<Recognition | null>(null);
 
   const speechLang = lang === "gu" ? "gu-IN" : lang === "hi" ? "hi-IN" : "en-IN";
@@ -131,6 +132,14 @@ export default function JarvisAssistant() {
             <div className="flex gap-1">
               <button onClick={() => setVoice((v) => !v)} title="Toggle spoken answers" className={`rounded p-1.5 text-xs ${voice ? "text-[#3ea6ff]" : "text-[color:var(--color-muted)]"}`}>
                 {voice ? "◖))" : "◖×"}
+              </button>
+              <button
+                onClick={() => { if (!thinking) clearMessages(); }}
+                disabled={thinking}
+                title="Clear chat and start from zero"
+                className="rounded p-1.5 text-xs text-[color:var(--color-muted)] hover:text-[#3ea6ff] disabled:opacity-40"
+              >
+                ⟲
               </button>
               <button onClick={() => setOpen(false)} className="rounded p-1.5 text-[color:var(--color-muted)]">×</button>
             </div>
